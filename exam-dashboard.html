@@ -99,7 +99,7 @@ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var
       <p style="font-size:12px;color:var(--muted);margin-top:8px">학생은 매주 이 QR로 접속 → 답 입력 + <b>폼에서 '시험 회차' 선택</b> → 제출</p>
     </div>
   </div>
-  <div class="alert alert-info">💡 시트의 '시험 회차' 칸으로 이번 주 응답만 골라 채점합니다. 같은 주에 서로 다른 시험을 '같은 회차 번호'로 받지 마세요(예: D.Archive 1회와 D.FINE 1회 동시). 폼 회차 옵션을 'D.Archive 1회'처럼 구체적으로 두면 완벽합니다.</div>
+  <div class="alert alert-info">💡 <b>폼 '시험 회차' 옵션을 브랜드별로 두면 완벽합니다</b> — "D.Archive 1회"·"D.FINE 1회"처럼. 그러면 같은 주에 두 시험을 봐도 안 섞입니다. (옛 "1회" 응답도 그대로 호환됩니다.)</div>
 </div>
 
 <div id="p-results" class="panel">
@@ -174,8 +174,18 @@ const CIRC=['','①','②','③','④','⑤'];
 let R=ROUNDS[0];            // 선택된 회차
 let students=[];
 let rawRows=[];             // 시트 전체 행(누적 약점용)
+let rawCSV='';              // 원본 CSV(회차 전환 시 재필터용)
 let gradeChart=null,scoreChart=null,autoTimer=null;
 function normType(t){return String(t||'').split('(')[0].trim();}
+function roundMatches(cell,rd){
+  const c=normLabel(cell);
+  if(c.indexOf(normLabel(rd.sheetLabel))<0)return false;          // 번호(N회) 일치 필수
+  const da=['darchive','d.archive','archive','아카이브'];
+  const df=['dfine','d.fine','fine','파인'];
+  const hasDA=da.some(t=>c.indexOf(t)>=0), hasDF=df.some(t=>c.indexOf(t)>=0);
+  if(!hasDA&&!hasDF)return true;                                  // 브랜드 표기 없는 구형 라벨 → 번호만으로 호환
+  return rd.brand==='D.Archive'?hasDA:hasDF;                      // 브랜드 표기 있으면 브랜드까지 일치
+}
 
 function circledToInt(v){
   if(v==null)return 0;const s=String(v).trim();
@@ -196,11 +206,11 @@ function selectRound(i){
   const info=document.getElementById('roundInfo');
   const tot=R.pts.reduce((a,b)=>a+b,0);
   const n3=R.ans.map((_,k)=>k+1).filter(k=>R.pts[k-1]===3);
-  info.innerHTML=`<b>${R.name}</b> · 총 ${tot}점 · 3점 ${n3.length}개(${n3.join(',')}) · 예측 1등급 ${R.target1}% · 시트 회차라벨 "<b>${R.sheetLabel}</b>"`;
+  info.innerHTML=`<b>${R.name}</b> · 총 ${tot}점 · 3점 ${n3.length}개(${n3.join(',')}) · 예측 1등급 ${R.target1}% · 폼 회차 옵션 권장: "<b>${R.name}</b>" (또는 "${R.sheetLabel}"도 호환)`;
   document.getElementById('keyGrid').innerHTML=R.ans.map((a,k)=>
     `<div class="kc${R.pts[k]===3?' p3':''}"><div class="kn">${k+1}번</div><div class="ka">${CIRC[a]}</div></div>`).join('');
   showToast(R.name+' 정답 로드됨');
-  if(students.length) renderAll();
+  if(rawCSV){processCSV(rawCSV);}else{students=[];renderAll();}
 }
 function switchTab(name,el){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -228,7 +238,7 @@ async function loadSheet(){
       csv=await res.text();
     }
     if(!csv)throw new Error('빈 응답');
-    processCSV(csv);
+    rawCSV=csv;processCSV(csv);
     s.textContent='업데이트: '+new Date().toLocaleTimeString('ko-KR')+' · '+R.name;
   }catch(e){s.textContent='오류: '+e.message;showToast('로드 실패: '+e.message);}
 }
@@ -248,10 +258,9 @@ function processCSV(raw){
   rawRows=rows;   // 누적 약점 탭에서 전 회차 사용
   // 회차 필터: 회차열(답 45개 다음 열) 값이 선택 회차라벨을 포함하면 채점 대상
   const anyLabel=rows.some(r=>String(r[3+NUM_Q]||'').trim()!=='');
-  const want=normLabel(R.sheetLabel);
   const filtered=rows.filter(r=>{
     if(!anyLabel)return true;                 // 회차칸이 아예 비어있는 옛 폼이면 전체
-    return normLabel(r[3+NUM_Q]).indexOf(want)>=0;
+    return roundMatches(r[3+NUM_Q],R);        // 번호+브랜드 매칭(구형 라벨 호환)
   });
   students=filtered.map(row=>{
     const ts=row[0]||'',name=row[1]||'',num=row[2]||'';
@@ -318,11 +327,10 @@ let CUMU={};
 function buildCumulative(){
   const brand=R.brand;
   const brandRounds=ROUNDS.filter(r=>r.brand===brand);
-  const byLabel={};brandRounds.forEach(r=>byLabel[normLabel(r.sheetLabel)]=r);
   const per={};
   rawRows.forEach(row=>{
-    const lab=normLabel(row[3+NUM_Q]);if(!lab)return;
-    const rd=byLabel[lab];if(!rd)return;                 // 이 브랜드에 없는 회차 스킵
+    const cell=row[3+NUM_Q];if(!String(cell||'').trim())return;
+    const rd=brandRounds.find(r=>roundMatches(cell,r));if(!rd)return;  // 브랜드+번호 매칭
     const name=(row[1]||'').trim();if(!name)return;
     const choices=row.slice(3,3+NUM_Q).map(circledToInt);
     const rec=per[name]||(per[name]={types:{},subs:[],scores:[]});
