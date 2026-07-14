@@ -333,6 +333,7 @@ function showWeakDetail(name){
 function showWeakList(){document.getElementById('wk-list-view').style.display='block';document.getElementById('wk-detail-view').style.display='none';}
 function matchScore(pred,act){let s=0;for(let j=0;j<5;j++)s+=Math.max(0,1-Math.abs(pred[j]-act[j])/100);return s/5*100;}
 function renderPrediction(){
+  document.getElementById('predNoData').style.display='none';document.getElementById('predSummaryArea').style.display='';
   const n=students.length;const act=Array.from({length:NUM_Q},()=>new Array(5).fill(0));
   students.forEach(s=>{for(let i=0;i<NUM_Q;i++){const c=s.choices[i];if(c>=1&&c<=5)act[i][c-1]++;}});
   let html='';
