@@ -50,6 +50,27 @@ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var
 .choice-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}.ch-lbl{width:20px;font-size:12px;font-weight:700;color:var(--muted);text-align:center}.ch-lbl.ans{color:var(--primary)}
 .ch-bars{flex:1;display:flex;flex-direction:column;gap:2px}.ch-bar-p{height:8px;border-radius:3px;background:#c7d2fe;min-width:3px}.ch-bar-a{height:8px;border-radius:3px;background:#4f46e5;min-width:3px}
 .ch-pcts{font-size:10px;display:flex;gap:6px;white-space:nowrap}.ch-pcts .pp{color:#818cf8}.ch-pcts .ap{color:#1e293b;font-weight:700}
+.rank-head{text-align:center;margin-bottom:16px}
+.rank-head h2{font-size:24px;font-weight:800;margin-bottom:6px}
+.rank-sub{font-size:13px;color:var(--muted)}
+.rank-tbl{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.rank-tbl th{background:#1e293b;color:#fff;padding:12px;font-size:14px}
+.rank-tbl td{padding:11px 12px;border-bottom:1px solid #eef2f7;text-align:center;font-size:15px}
+.rank-tbl td.nm{font-weight:700;text-align:left}
+.rank-tbl td.rk{font-weight:800;width:64px;font-size:16px}
+.rank-tbl td.sc{font-weight:800;color:var(--primary);font-size:17px}
+.rank-tbl tr.top td{background:#fffbeb}
+@media print{
+ .tab-bar,.no-print,#toast{display:none!important}
+ body{background:#fff;font-size:13px}
+ .panel{padding:0;max-width:100%}
+ .rank-tbl{box-shadow:none;border:1px solid #333}
+ .rank-tbl th{background:#333!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ .rank-tbl tr.top td{background:#f2f2f2!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ .grade-badge{border:1px solid #999;color:#000!important;background:#fff!important}
+ .rank-head h2{font-size:22px}
+ @page{margin:1.4cm}
+}
 </style></head><body>
 
 <div class="tab-bar">
@@ -59,6 +80,7 @@ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var
   <button class="tab-btn" onclick="switchTab('students',this)">👥 학생 목록</button>
   <button class="tab-btn" onclick="switchTab('weakness',this)">📚 학생별 약점</button>
   <button class="tab-btn" onclick="switchTab('prediction',this)">🎲 선지 예측</button>
+  <button class="tab-btn" onclick="switchTab('rank',this)">🏆 순위표(인쇄)</button>
 </div>
 
 <div id="p-setup" class="panel active">
@@ -125,6 +147,20 @@ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var
   </div>
 </div>
 
+<div id="p-rank" class="panel">
+  <div class="no-print" style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px">
+    <button class="btn btn-outline" onclick="loadSheet()">🔄 새로고침</button>
+    <button class="btn btn-primary" id="printBtn" onclick="window.print()">🖨️ 인쇄하기</button>
+  </div>
+  <div class="rank-head">
+    <h2 id="rankTitle">모의고사 성적 순위</h2>
+    <div id="rankInfo" class="rank-sub"></div>
+  </div>
+  <table class="rank-tbl"><thead><tr><th>순위</th><th>이름</th><th>번호</th><th>점수</th><th>등급</th></tr></thead>
+  <tbody id="rankBody"><tr><td colspan="5" class="empty-msg">회차를 선택하고 새로고침하세요.</td></tr></tbody></table>
+  <p class="no-print" style="font-size:11px;color:var(--muted);margin-top:10px">※ 인쇄 시 상단 탭·버튼은 자동으로 빠지고 순위표만 출력됩니다. 이름 비공개가 필요하면 말씀해 주세요(예: 장*봉).</p>
+</div>
+
 <div id="toast" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 20px;border-radius:30px;font-size:13px;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999"></div>
 
 <script>
@@ -173,6 +209,7 @@ function switchTab(name,el){
   if(name!=='setup'&&students.length===0)loadSheet();
   if(name==='weakness')renderWeakness();
   if(name==='prediction')renderPrediction();
+  if(name==='rank')renderRank();
 }
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',1800);}
 
@@ -231,7 +268,7 @@ function processCSV(raw){
   students.forEach(st=>{const m=sorted.find(x=>x.ts===st.ts&&x.name===st.name&&x.num===st.num);if(m)st.grade=m.grade;});
   renderAll();
 }
-function renderAll(){renderStats();renderCharts();renderAnalysis();renderStudents();renderPrediction();}
+function renderAll(){renderStats();renderCharts();renderAnalysis();renderStudents();renderPrediction();renderRank();}
 function renderStats(){
   const n=students.length;document.getElementById('sCnt').textContent=n+'명';
   if(!n){['sAvg','sMax','sMin','s1g','vsT','vsR'].forEach(id=>document.getElementById(id).textContent='—');document.getElementById('vsMsg').textContent='';return;}
@@ -298,6 +335,23 @@ function buildCumulative(){
     rec.subs.push(rd.name);rec.scores.push(sc);
   });
   CUMU=per;return per;
+}
+function renderRank(){
+  const n=students.length;
+  const t=document.getElementById('rankTitle');if(t)t.textContent=R.name+' 성적 순위';
+  const now=new Date();
+  const avg=n?(students.reduce((a,s)=>a+s.total,0)/n).toFixed(1):'—';
+  const mx=n?Math.max.apply(null,students.map(s=>s.total)):'—';
+  const info=document.getElementById('rankInfo');
+  if(info)info.textContent=n?(`응시 ${n}명 · 평균 ${avg}점 · 최고 ${mx}점 · ${now.getFullYear()}.${now.getMonth()+1}.${now.getDate()}`):'';
+  const tb=document.getElementById('rankBody');if(!tb)return;
+  if(!n){tb.innerHTML='<tr><td colspan="5" class="empty-msg">아직 제출된 답안이 없습니다.</td></tr>';return;}
+  const sorted=[...students].sort((a,b)=>b.total-a.total);
+  let rows='',rank=0,prev=null,shown=0;
+  sorted.forEach(s=>{shown++;if(s.total!==prev){rank=shown;prev=s.total;}
+    const medal=rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':rank+'위';
+    rows+=`<tr class="${rank<=3?'top':''}"><td class="rk">${medal}</td><td class="nm">${s.name}</td><td>${s.num||''}</td><td class="sc">${s.total}</td><td><span class="grade-badge g${s.grade||9}">${s.grade||'?'}등급</span></td></tr>`;});
+  tb.innerHTML=rows;
 }
 function renderWeakness(){
   const per=buildCumulative();
