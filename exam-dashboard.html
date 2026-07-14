@@ -1,1692 +1,353 @@
 <!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>모의고사 채점 대시보드</title>
+<script type="application/json" id="cowork-artifact-meta">
+{"name":"통합 채점 대시보드","schemaVersion":1,"description":"회차 선택형 모의고사 채점 대시보드 — 6회차 정답 내장, 회차만 고르면 자동 채점(구글폼/QR 재사용, 정답 입력 불필요). 구글시트에서 회차별 응답만 필터링해 수능식 등급·문항분석·선지예측 제공.","mcpTools":["mcp__35772252-0cd3-40ad-ac13-a40a62adeb71__download_file_content"],"mcpServerNames":["Google Drive"]}
+</script>
+<html lang=ko><head><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>통합 채점 대시보드</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
-:root {
-  color-scheme: light;
-  --bg: #f0f4f8;
-  --card: #ffffff;
-  --primary: #4f46e5;
-  --primary-light: #eef2ff;
-  --danger: #ef4444;
-  --warning: #f59e0b;
-  --success: #10b981;
-  --text: #1e293b;
-  --muted: #64748b;
-  --border: #e2e8f0;
-  --radius: 12px;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
-
-/* ── 탭 ── */
-.tab-bar { display: flex; background: var(--card); border-bottom: 2px solid var(--border); padding: 0 16px; gap: 4px; position: sticky; top: 0; z-index: 10; }
-.tab-btn { padding: 14px 18px; cursor: pointer; border: none; background: none; font-size: 14px; font-weight: 600; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: color .2s; }
-.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
-.tab-btn:hover { color: var(--primary); }
-
-.panel { display: none; padding: 16px; max-width: 900px; margin: 0 auto; }
-.panel.active { display: block; }
-
-/* ── 카드 ── */
-.card { background: var(--card); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
-.card h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
-
-/* ── 버튼 ── */
-.btn { padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 13px; transition: opacity .15s; }
-.btn:hover { opacity: .85; }
-.btn-primary { background: var(--primary); color: #fff; }
-.btn-success { background: var(--success); color: #fff; }
-.btn-outline { background: #fff; border: 1.5px solid var(--border); color: var(--text); }
-.btn-danger  { background: var(--danger); color: #fff; }
-
-/* ── 통계 그리드 ── */
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 14px; }
-.stat-card { background: var(--card); border-radius: 10px; padding: 14px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
-.stat-card .sv { font-size: 26px; font-weight: 800; }
-.stat-card .sl { font-size: 11px; color: var(--muted); margin-top: 4px; }
-
-/* ── 정답 그리드 ── */
-.answer-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-@media(max-width:540px){ .answer-grid { grid-template-columns: repeat(3,1fr); } }
-.ans-item { display: flex; flex-direction: column; gap: 3px; }
-.ans-item label { font-size: 11px; color: var(--muted); text-align: center; font-weight: 600; }
-.ans-row { display: flex; gap: 3px; }
-.ans-row select { flex: 1; padding: 5px 2px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 12px; text-align: center; }
-.ans-row select.answered { border-color: var(--primary); background: var(--primary-light); }
-.sc-sel { width: 46px; padding: 5px 2px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 11px; background: #f8fafc; }
-
-/* ── 등급 색상 ── */
-.g1{background:#7c3aed;color:#fff} .g2{background:#2563eb;color:#fff} .g3{background:#0891b2;color:#fff}
-.g4{background:#059669;color:#fff} .g5{background:#65a30d;color:#fff} .g6{background:#ca8a04;color:#fff}
-.g7{background:#ea580c;color:#fff} .g8{background:#dc2626;color:#fff} .g9{background:#9f1239;color:#fff}
-.grade-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 13px; font-weight: 700; }
-
-/* ── 문항 분석 ── */
-.q-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; margin-bottom: 5px; background: #fff; border: 1px solid var(--border); }
-.q-item.hard { border-left: 4px solid var(--danger); }
-.q-num { font-weight: 700; width: 40px; font-size: 13px; }
-.q-rank { font-size: 11px; color: var(--muted); width: 48px; }
-.bar-wrap { flex: 1; background: #f1f5f9; border-radius: 4px; height: 22px; overflow: hidden; }
-.bar-inner { height: 100%; display: flex; align-items: center; padding: 0 8px; font-size: 11px; color: #fff; font-weight: 700; border-radius: 4px; transition: width .5s; min-width: 30px; }
-.chip { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-.chip-red { background: #fee2e2; color: #991b1b; }
-.chip-green { background: #d1fae5; color: #065f46; }
-.chip-gray { background: #f1f5f9; color: var(--muted); }
-
-/* ── 학생 테이블 ── */
-.stbl { width: 100%; border-collapse: collapse; font-size: 13px; }
-.stbl th { background: #f8fafc; padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 700; }
-.stbl td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; }
-.stbl tr:hover td { background: #fafbff; }
-
-/* ── VS 비교 ── */
-.vs-wrap { display: flex; align-items: center; gap: 16px; padding: 14px; background: #f8fafc; border-radius: 10px; }
-.vs-side { flex: 1; text-align: center; }
-.vs-side .vv { font-size: 36px; font-weight: 800; }
-.vs-side .vl { font-size: 12px; color: var(--muted); margin-top: 4px; }
-.vs-mid { font-size: 18px; color: var(--muted); font-weight: 700; }
-
-/* ── 폼 URL ── */
-.form-url-box { word-break: break-all; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 12px; font-family: monospace; margin-top: 10px; }
-
-/* ── 알림 ── */
-.alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; }
-.alert-warn { background: #fef3c7; border: 1px solid #fcd34d; color: #78350f; }
-.alert-info { background: #dbeafe; border: 1px solid #93c5fd; color: #1e3a8a; }
-.alert-success { background: #d1fae5; border: 1px solid #6ee7b7; color: #064e3b; }
-
-.lbl-sm { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block; font-weight: 600; }
-.row-flex { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.empty-msg { text-align: center; padding: 30px; color: var(--muted); }
-.chart-box { position: relative; height: 200px; }
-
-/* ── 학생 약점 탭 ── */
-.stu-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
-.stu-card { background: var(--card); border: 1.5px solid var(--border); border-radius: 10px; padding: 14px; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
-.stu-card:hover, .stu-card.sel { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
-.stu-card .sn { font-weight: 700; font-size: 15px; }
-.stu-card .si { font-size: 12px; color: var(--muted); margin-top: 3px; }
-.stu-card .sb { margin-top: 8px; }
-
-.weak-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; margin-bottom: 14px; }
-@media(max-width:500px){ .weak-grid { grid-template-columns: repeat(5,1fr); } }
-.wq-cell { border-radius: 6px; padding: 6px 2px; text-align: center; font-size: 11px; font-weight: 700; cursor: default; }
-
-.score-history { display: flex; gap: 8px; flex-wrap: wrap; }
-.sh-item { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12px; text-align: center; min-width: 80px; }
-.sh-item .sh-score { font-size: 18px; font-weight: 800; }
-.sh-item .sh-date { color: var(--muted); font-size: 11px; margin-top: 2px; }
-
-.detail-back { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--primary); cursor: pointer; margin-bottom: 14px; }
-
-/* ── Excel 업로드 ── */
-.upload-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: border-color .2s, background .2s; }
-.upload-zone:hover, .upload-zone.drag { border-color: var(--primary); background: var(--primary-light); }
-.upload-zone input[type=file] { display:none; }
-.upload-status { margin-top: 10px; font-size: 12px; color: var(--muted); }
-.upload-status.ok { color: var(--success); font-weight: 600; }
-.upload-status.err { color: var(--danger); font-weight: 600; }
-
-/* ── 선지 예측 분析 탭 ── */
-.pred-legend { display:flex; gap:14px; font-size:11px; color:var(--muted); margin-bottom:14px; flex-wrap:wrap; }
-.pred-legend span { display:flex; align-items:center; gap:4px; }
-.leg-box { display:inline-block; width:12px; height:8px; border-radius:2px; }
-.pred-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
-.pred-card { background: var(--card); border-radius: var(--radius); padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
-.pred-card .pc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-.pred-card .pc-num { font-weight: 800; font-size: 15px; min-width: 36px; }
-.pred-card .pc-ans { background: var(--primary); color:#fff; border-radius:20px; padding:2px 9px; font-size:11px; font-weight:700; }
-.pred-card .pc-pts { background:#f1f5f9; border-radius:20px; padding:2px 8px; font-size:11px; color:var(--muted); }
-.match-badge { font-size:10px; padding:2px 7px; border-radius:10px; font-weight:700; margin-left:auto; }
-.match-good { background:#d1fae5; color:#065f46; }
-.match-ok   { background:#fef3c7; color:#78350f; }
-.match-miss { background:#fee2e2; color:#991b1b; }
-.choice-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-.ch-lbl { width: 20px; font-size: 12px; font-weight: 700; color: var(--muted); text-align:center; flex-shrink:0; }
-.ch-lbl.ans { color: var(--primary); }
-.ch-bars { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.ch-bar-p { height: 8px; border-radius: 3px; background: #c7d2fe; min-width: 3px; transition: width .4s; }
-.ch-bar-a { height: 8px; border-radius: 3px; background: #4f46e5; min-width: 3px; transition: width .4s; }
-.ch-pcts { font-size: 10px; display:flex; gap:6px; margin-left:4px; white-space:nowrap; flex-shrink:0; }
-.ch-pcts .pp { color:#818cf8; }
-.ch-pcts .ap { color:#1e293b; font-weight:700; }
-.pred-empty { text-align:center; padding:40px; color:var(--muted); font-size:13px; }
-.pred-sum-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:16px; }
-.pred-sum-card { background:var(--card); border-radius:10px; padding:12px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,.06); }
-.pred-sum-card .psv { font-size:22px; font-weight:800; }
-.pred-sum-card .psl { font-size:11px; color:var(--muted); margin-top:3px; }
-
-</style>
-</head>
-<body>
+:root{color-scheme:light;--bg:#f0f4f8;--card:#fff;--primary:#4f46e5;--primary-light:#eef2ff;
+--danger:#ef4444;--warning:#f59e0b;--success:#10b981;--text:#1e293b;--muted:#64748b;--border:#e2e8f0;--radius:12px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+.tab-bar{display:flex;flex-wrap:wrap;background:var(--card);border-bottom:2px solid var(--border);padding:0 12px;gap:2px;position:sticky;top:0;z-index:10}
+.tab-btn{padding:13px 15px;cursor:pointer;border:none;background:none;font-size:14px;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px}
+.tab-btn.active{color:var(--primary);border-bottom-color:var(--primary)}
+.panel{display:none;padding:16px;max-width:1000px;margin:0 auto}.panel.active{display:block}
+.card{background:var(--card);border-radius:var(--radius);padding:18px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.card h3{font-size:15px;font-weight:700;margin-bottom:14px}
+.btn{padding:9px 18px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:13px}
+.btn-primary{background:var(--primary);color:#fff}.btn-outline{background:#fff;border:1.5px solid var(--border);color:var(--text)}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:14px}
+.stat-card{background:var(--card);border-radius:10px;padding:14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.stat-card .sv{font-size:24px;font-weight:800}.stat-card .sl{font-size:11px;color:var(--muted);margin-top:4px}
+.g1{background:#7c3aed;color:#fff}.g2{background:#2563eb;color:#fff}.g3{background:#0891b2;color:#fff}.g4{background:#059669;color:#fff}.g5{background:#65a30d;color:#fff}.g6{background:#ca8a04;color:#fff}.g7{background:#ea580c;color:#fff}.g8{background:#dc2626;color:#fff}.g9{background:#9f1239;color:#fff}
+.grade-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:13px;font-weight:700}
+.q-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;margin-bottom:5px;background:#fff;border:1px solid var(--border)}
+.q-item.hard{border-left:4px solid var(--danger)}.q-num{font-weight:700;width:40px;font-size:13px}.q-rank{font-size:11px;color:var(--muted);width:48px}
+.bar-wrap{flex:1;background:#f1f5f9;border-radius:4px;height:22px;overflow:hidden}
+.bar-inner{height:100%;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:700;border-radius:4px;min-width:30px}
+.chip{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.chip-red{background:#fee2e2;color:#991b1b}.chip-green{background:#d1fae5;color:#065f46}.chip-gray{background:#f1f5f9;color:var(--muted)}
+.stbl{width:100%;border-collapse:collapse;font-size:13px}
+.stbl th{background:#f8fafc;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);font-weight:700}
+.stbl td{padding:9px 12px;border-bottom:1px solid #f1f5f9}
+.vs-wrap{display:flex;align-items:center;gap:16px;padding:14px;background:#f8fafc;border-radius:10px}
+.vs-side{flex:1;text-align:center}.vs-side .vv{font-size:32px;font-weight:800}.vs-side .vl{font-size:12px;color:var(--muted);margin-top:4px}.vs-mid{font-size:18px;color:var(--muted);font-weight:700}
+.alert{padding:12px 16px;border-radius:8px;margin-bottom:12px;font-size:13px}
+.alert-warn{background:#fef3c7;border:1px solid #fcd34d;color:#78350f}.alert-info{background:#dbeafe;border:1px solid #93c5fd;color:#1e3a8a}.alert-success{background:#d1fae5;border:1px solid #6ee7b7;color:#064e3b}
+.empty-msg{text-align:center;padding:30px;color:var(--muted)}
+.chart-box{position:relative;height:200px}
+.rsel{width:100%;max-width:420px;padding:14px 16px;font-size:18px;font-weight:800;border:2px solid var(--primary);border-radius:12px;background:var(--primary-light);color:var(--primary);cursor:pointer}
+.keygrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:5px;margin-top:12px}
+.kc{text-align:center;padding:5px 2px;border-radius:6px;background:#f8fafc;font-size:12px;border:1px solid var(--border)}
+.kc .kn{font-size:10px;color:var(--muted)}.kc .ka{font-weight:800;color:var(--primary)}.kc.p3{background:#fef3c7}
+.pred-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.pred-card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.pc-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}.pc-num{font-weight:800;font-size:15px;min-width:34px}
+.pc-ans{background:var(--primary);color:#fff;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700}.pc-pts{background:#f1f5f9;border-radius:20px;padding:2px 8px;font-size:11px;color:var(--muted)}
+.match-badge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;margin-left:auto}.match-good{background:#d1fae5;color:#065f46}.match-ok{background:#fef3c7;color:#78350f}.match-miss{background:#fee2e2;color:#991b1b}
+.choice-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}.ch-lbl{width:20px;font-size:12px;font-weight:700;color:var(--muted);text-align:center}.ch-lbl.ans{color:var(--primary)}
+.ch-bars{flex:1;display:flex;flex-direction:column;gap:2px}.ch-bar-p{height:8px;border-radius:3px;background:#c7d2fe;min-width:3px}.ch-bar-a{height:8px;border-radius:3px;background:#4f46e5;min-width:3px}
+.ch-pcts{font-size:10px;display:flex;gap:6px;white-space:nowrap}.ch-pcts .pp{color:#818cf8}.ch-pcts .ap{color:#1e293b;font-weight:700}
+</style></head><body>
 
 <div class="tab-bar">
-  <button class="tab-btn active" onclick="switchTab('setup',this)">⚙️ 시험 설정</button>
+  <button class="tab-btn active" onclick="switchTab('setup',this)">🎯 회차 선택</button>
   <button class="tab-btn" onclick="switchTab('results',this)">📊 실시간 결과</button>
   <button class="tab-btn" onclick="switchTab('analysis',this)">🔍 문항 분석</button>
   <button class="tab-btn" onclick="switchTab('students',this)">👥 학생 목록</button>
   <button class="tab-btn" onclick="switchTab('weakness',this)">📚 학생별 약점</button>
-  <button class="tab-btn" onclick="switchTab('prediction',this)">🎯 선지 예측 분析</button>
+  <button class="tab-btn" onclick="switchTab('prediction',this)">🎲 선지 예측</button>
 </div>
 
-<!-- ════════════════ 탭1: 설정 ════════════════ -->
 <div id="p-setup" class="panel active">
-
+  <div class="card" style="border:2px solid var(--primary)">
+    <h3>① 이번 주 회차를 선택하세요</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">회차만 고르면 정답이 자동으로 걸립니다. 정답 입력·엑셀 업로드 필요 없어요.</p>
+    <select id="roundSel" class="rsel" onchange="selectRound(this.value)"></select>
+    <div id="roundInfo" style="margin-top:12px;font-size:13px;color:var(--muted)"></div>
+    <div class="keygrid" id="keyGrid"></div>
+  </div>
   <div class="card">
-    <h3>📱 학생 답안 제출 폼</h3>
-    <div style="text-align:center; padding: 8px 0;">
-      <img id="qrImg" src="" alt="QR" style="border-radius:8px; width:160px; height:160px;">
-      <div class="form-url-box" id="fUrl"></div>
-      <div style="margin-top:10px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
-        <button class="btn btn-outline" onclick="copyUrl()">🔗 URL 복사</button>
-      </div>
+    <h3>② 학생 답안 제출 (매주 같은 QR·폼 재사용)</h3>
+    <div style="text-align:center;padding:6px 0">
+      <img id="qrImg" alt="QR" style="border-radius:8px;width:150px;height:150px">
+      <div style="word-break:break-all;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:11px;font-family:monospace;margin-top:8px" id="fUrl"></div>
+      <p style="font-size:12px;color:var(--muted);margin-top:8px">학생은 매주 이 QR로 접속 → 답 입력 + <b>폼에서 '시험 회차' 선택</b> → 제출</p>
     </div>
   </div>
-
-  <div class="card" style="border: 2px solid var(--primary);">
-    <h3>⚡ 빠른 입력</h3>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
-      정답을 붙여넣고 3점 문항 번호만 적으면 끝! 엑셀 없이 30초 설정 완료.
-    </p>
-
-    <span class="lbl-sm">① 정답 붙여넣기 (45개) — ①②③④⑤ 또는 1 2 3 4 5 또는 1,2,3,4,5 모두 OK</span>
-    <textarea id="quickAns" rows="4" placeholder="예) ③①④②⑤③①②④⑤ 또는 3 1 4 2 5 3 1 2 4 5 형식으로 45개 붙여넣기"
-      style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;resize:vertical;margin-bottom:10px;font-family:inherit;"
-      oninput="previewQuick()"></textarea>
-
-    <div id="quickPreview" style="display:none;margin-bottom:12px;">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">파싱된 정답 미리보기 (<span id="qpCount">0</span>개)</div>
-      <div id="qpGrid" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
-    </div>
-
-    <div class="row-flex" style="margin-bottom:14px;align-items:flex-start;gap:16px;flex-wrap:wrap;">
-      <div style="flex:1;min-width:200px;">
-        <span class="lbl-sm">② 3점 문항 번호 10개 입력 (나머지 35개 자동 2점 → 총점 100점)</span>
-        <input type="text" id="quick3pt" placeholder="예) 3, 6, 11, 17, 22, 30, 33, 38, 40, 45 (시험마다 달라요)"
-          style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;">
-      </div>
-      <div style="display:flex;align-items:flex-end;padding-bottom:2px;">
-        <button class="btn btn-outline" onclick="setQuick3pt('')" style="font-size:12px;padding:8px 12px;">수능 기본값</button>
-      </div>
-    </div>
-
-    <button class="btn btn-primary" style="width:100%;padding:12px;" onclick="applyQuickInput()">✅ 정답·배점 적용하기</button>
-    <div id="quickResult" style="margin-top:8px;font-size:12px;text-align:center;"></div>
-  </div>
-
-  <div class="card">
-    <h3>🎯 시험 기본 설정</h3>
-    <div class="row-flex">
-      <div>
-        <span class="lbl-sm">시험명</span>
-        <input type="text" id="examName" placeholder="예: 2026년 6월 모의고사"
-          style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;width:220px;"
-          oninput="saveCfg()">
-      </div>
-      <div>
-        <span class="lbl-sm">목표 1등급 비율 (%)</span>
-        <input type="number" id="target1" value="4" min="0.1" max="30" step="0.1"
-          style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;width:90px;"
-          oninput="saveCfg()">
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <h3 style="margin:0;">✏️ 정답 및 배점 입력</h3>
-      <div style="display:flex;gap:6px;">
-        <button class="btn btn-outline" onclick="setAllPts(2)">전체 2점</button>
-        <button class="btn btn-outline" onclick="setAllPts(3)">전체 3점</button>
-        <button class="btn btn-success" onclick="saveCfg();showToast('저장됐습니다!')">💾 저장</button>
-      </div>
-    </div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
-      왼쪽: 정답(①~⑤) &nbsp;|&nbsp; 오른쪽: 배점 &nbsp;|&nbsp; 총점: <strong id="totPts">0</strong>점
-    </p>
-    <div class="answer-grid" id="ansGrid"></div>
-  </div>
-
-  <div class="card">
-    <h3>📂 엑셀 파일로 일괄 설정</h3>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
-      <strong>모의고사_설정_템플릿.xlsx</strong> 파일을 업로드하면 정답·배점·선지별 예측 비율이 자동으로 입력됩니다.
-    </p>
-    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('xlsxInput').click()"
-      ondragover="event.preventDefault();this.classList.add('drag')"
-      ondragleave="this.classList.remove('drag')"
-      ondrop="handleXlsxDrop(event)">
-      <input type="file" id="xlsxInput" accept=".xlsx,.xls" onchange="handleXlsxFile(this.files[0])">
-      <div style="font-size:28px;margin-bottom:8px;">📊</div>
-      <div style="font-weight:600;font-size:14px;">클릭하거나 파일을 드래그하세요</div>
-      <div style="font-size:12px;color:var(--muted);margin-top:4px;">.xlsx 파일 (모의고사_설정_템플릿.xlsx)</div>
-    </div>
-    <div id="uploadStatus" class="upload-status"></div>
-  </div>
-
+  <div class="alert alert-info">💡 시트의 '시험 회차' 칸으로 이번 주 응답만 골라 채점합니다. 같은 주에 서로 다른 시험을 '같은 회차 번호'로 받지 마세요(예: D.Archive 1회와 D.FINE 1회 동시). 폼 회차 옵션을 'D.Archive 1회'처럼 구체적으로 두면 완벽합니다.</div>
 </div>
 
-<!-- ════════════════ 탭2: 실시간 결과 ════════════════ -->
 <div id="p-results" class="panel">
-  <div class="row-flex" style="margin-bottom:14px;">
-    <span id="lastUp" style="font-size:12px;color:var(--muted);">마지막 업데이트: —</span>
-    <div style="margin-left:auto;display:flex;gap:8px;">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+    <span id="lastUp" style="font-size:12px;color:var(--muted)">—</span>
+    <div style="margin-left:auto;display:flex;gap:8px">
       <button class="btn btn-outline" onclick="loadSheet()">🔄 새로고침</button>
-      <button class="btn btn-primary" id="autoBtn" onclick="toggleAuto()">▶ 자동갱신 시작</button>
+      <button class="btn btn-primary" id="autoBtn" onclick="toggleAuto()">▶ 자동갱신</button>
     </div>
   </div>
-
-  <div id="noAnsAlert" class="alert alert-warn" style="display:none;">
-    ⚠️ 정답이 설정되지 않았습니다. [시험 설정] 탭에서 정답을 입력하세요.
-  </div>
-
-  <!-- 회차 필터 -->
-  <div id="roundFilterWrap" style="display:none;margin-bottom:12px;">
-    <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;">📅 시험 회차 선택</div>
-    <div id="roundBtns" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
-  </div>
-
   <div class="stat-grid">
     <div class="stat-card"><div class="sv" id="sCnt">—</div><div class="sl">제출 학생</div></div>
     <div class="stat-card"><div class="sv" id="sAvg">—</div><div class="sl">평균 점수</div></div>
     <div class="stat-card"><div class="sv" id="sMax">—</div><div class="sl">최고 점수</div></div>
     <div class="stat-card"><div class="sv" id="sMin">—</div><div class="sl">최저 점수</div></div>
-    <div class="stat-card"><div class="sv" id="s1g" style="color:#7c3aed;">—</div><div class="sl">실제 1등급 비율</div></div>
+    <div class="stat-card"><div class="sv" id="s1g" style="color:#7c3aed">—</div><div class="sl">1등급 비율</div></div>
   </div>
-
-  <div class="card">
-    <h3>🎯 1등급 목표 vs 실제</h3>
-    <div class="vs-wrap">
-      <div class="vs-side"><div class="vv" id="vsT" style="color:var(--muted);">—</div><div class="vl">목표 1등급</div></div>
-      <div class="vs-mid">vs</div>
-      <div class="vs-side"><div class="vv" id="vsR" style="color:#7c3aed;">—</div><div class="vl">실제 1등급</div></div>
-    </div>
-    <div id="vsMsg" style="margin-top:10px;text-align:center;font-size:13px;color:var(--muted);"></div>
+  <div class="card"><h3>🎯 목표 vs 실제 1등급</h3>
+    <div class="vs-wrap"><div class="vs-side"><div class="vv" id="vsT" style="color:var(--muted)">—</div><div class="vl">목표(예측)</div></div><div class="vs-mid">vs</div><div class="vs-side"><div class="vv" id="vsR" style="color:#7c3aed">—</div><div class="vl">실제</div></div></div>
+    <div id="vsMsg" style="margin-top:10px;text-align:center;font-size:13px;color:var(--muted)"></div>
   </div>
-
-  <div class="card">
-    <h3>📊 등급 분포</h3>
-    <div class="chart-box"><canvas id="gradeChart"></canvas></div>
-    <div id="gradeBadges" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;"></div>
-  </div>
-
-  <div class="card">
-    <h3>📈 점수 분포</h3>
-    <div class="chart-box"><canvas id="scoreChart"></canvas></div>
-  </div>
+  <div class="card"><h3>📊 등급 분포</h3><div class="chart-box"><canvas id="gradeChart"></canvas></div><div id="gradeBadges" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"></div></div>
+  <div class="card"><h3>📈 점수 분포</h3><div class="chart-box"><canvas id="scoreChart"></canvas></div></div>
 </div>
 
-<!-- ════════════════ 탭3: 문항 분석 ════════════════ -->
 <div id="p-analysis" class="panel">
-  <div class="card">
-    <h3>🔴 오답 TOP 10 <span style="font-size:12px;font-weight:400;color:var(--muted);">정답률 낮은 순</span></h3>
-    <div id="hardList"><div class="empty-msg">데이터를 불러오세요.</div></div>
-  </div>
-  <div class="card">
-    <h3>📋 전체 문항별 정답률 <span style="font-size:12px;font-weight:400;color:var(--muted);">문항 순</span></h3>
-    <div id="allList"></div>
-  </div>
+  <div class="card"><h3>⚠️ 오답률 높은 문항 (정답률 50% 미만)</h3><div id="hardList"><div class="empty-msg">회차를 선택하고 새로고침하세요.</div></div></div>
+  <div class="card"><h3>📋 전체 문항별 정답률</h3><div id="allList"></div></div>
 </div>
 
-<!-- ════════════════ 탭4: 학생 목록 ════════════════ -->
 <div id="p-students" class="panel">
-  <div class="card">
-    <h3>👥 학생별 채점 결과</h3>
-    <div style="overflow-x:auto;">
-      <table class="stbl">
-        <thead><tr><th>번호</th><th>이름</th><th>점수</th><th>등급</th><th>제출시각</th></tr></thead>
-        <tbody id="stuBody"><tr><td colspan="5" class="empty-msg">데이터를 불러오세요.</td></tr></tbody>
-      </table>
-    </div>
-  </div>
+  <div class="card"><h3>👥 학생별 채점 결과</h3><div style="overflow-x:auto"><table class="stbl"><thead><tr><th>번호</th><th>이름</th><th>점수</th><th>등급</th><th>제출시각</th></tr></thead><tbody id="stuBody"><tr><td colspan=5 class="empty-msg">회차를 선택하고 새로고침하세요.</td></tr></tbody></table></div></div>
 </div>
 
-<!-- ════════════════ 탭5: 학생별 약점 ════════════════ -->
 <div id="p-weakness" class="panel">
-
-  <!-- 학생 목록 뷰 -->
-  <div id="wk-list-view">
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-        <h3 style="margin:0;">📚 학생별 누적 약점 분석</h3>
-        <button class="btn btn-outline" onclick="loadSheet().then(renderWeakness)">🔄 새로고침</button>
-      </div>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
-        같은 이름으로 여러 번 제출한 데이터를 누적 분석합니다. 학생 카드를 클릭하면 상세 약점을 확인할 수 있어요.
-      </p>
-      <div class="stu-list" id="wkStuList">
-        <div class="empty-msg">데이터를 불러오세요.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 학생 상세 뷰 -->
-  <div id="wk-detail-view" style="display:none;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-      <div onclick="showWeakList()" class="detail-back" style="margin-bottom:0;">← 목록으로</div>
-      <button class="btn btn-primary" onclick="printStudentReport()" style="font-size:13px;">📄 PDF 저장</button>
-    </div>
-
-    <div class="stat-grid">
-      <div class="stat-card"><div class="sv" id="wdTotal">—</div><div class="sl">총 응시 횟수</div></div>
-      <div class="stat-card"><div class="sv" id="wdAvg">—</div><div class="sl">평균 점수</div></div>
-      <div class="stat-card"><div class="sv" id="wdBest">—</div><div class="sl">최고 점수</div></div>
-      <div class="stat-card"><div class="sv" id="wdWeak">—</div><div class="sl">주요 약점 문항수</div></div>
-    </div>
-
-    <div class="card">
-      <h3 id="wdName">—</h3>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">🔴 많이 틀림 &nbsp;🟠 가끔 틀림 &nbsp;🟢 잘 맞춤 &nbsp;⬜ 데이터 없음</p>
-      <div class="weak-grid" id="wdHeatmap"></div>
-    </div>
-
-    <div class="card">
-      <h3>⚠️ 자주 틀리는 문항 (오답률 50% 이상)</h3>
-      <div id="wdWeakList"><div class="empty-msg">약점 문항 없음</div></div>
-    </div>
-
-    <div class="card">
-      <h3>📋 답안 비교 <span id="wdCompareLabel" style="font-size:12px;font-weight:400;color:var(--muted);"></span></h3>
-      <div id="wdAnswerCompare" style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:8px;"></div>
-      <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted);">
-        <span>🟢 정답 &nbsp;🔴 오답 &nbsp;⬜ 정답 미입력</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>📈 점수 변화 기록</h3>
-      <div class="score-history" id="wdHistory"></div>
-      <div class="chart-box" style="margin-top:14px;height:160px;"><canvas id="wdScoreChart"></canvas></div>
-    </div>
-  </div>
+  <div id="wk-list-view"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0">📚 학생별 유형 누적 약점</h3><button class="btn btn-outline" onclick="loadSheet().then(renderWeakness)">🔄 새로고침</button></div><p id="wkScope" style="font-size:12px;color:var(--muted);margin-bottom:14px"></p><div class="stat-grid" id="wkStuList" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))"><div class="empty-msg">데이터를 불러오세요.</div></div></div></div>
+  <div id="wk-detail-view" style="display:none"><div onclick="showWeakList()" style="cursor:pointer;color:var(--primary);font-weight:600;margin-bottom:12px">← 목록</div><div class="card"><h3 id="wdName">—</h3><p id="wdInfo" style="font-size:12px;color:var(--muted);margin-bottom:12px"></p><div id="wdTypeList"></div></div></div>
 </div>
 
-
-<!-- ════════════════ 탭6: 선지 예측 분析 ════════════════ -->
 <div id="p-prediction" class="panel">
-
-  <div id="predNoData" class="alert alert-warn" style="display:none;">
-    ⚠️ 엑셀 파일을 업로드하고 학생 답안을 불러와야 선지 예측 분析을 볼 수 있습니다.
-  </div>
-
-  <!-- 요약 통계 -->
-  <div id="predSummaryArea" style="display:none;">
-    <div class="pred-sum-grid" id="predSumGrid"></div>
-    <div class="pred-legend">
-      <span><span class="leg-box" style="background:#c7d2fe;"></span> 예측 %</span>
-      <span><span class="leg-box" style="background:#4f46e5;"></span> 실제 % (학생 선택)</span>
-    </div>
-    <div class="row-flex" style="margin-bottom:12px;gap:8px;flex-wrap:wrap;">
-      <button class="btn btn-outline" id="predFilterAll" onclick="renderPrediction('all')" style="border-color:var(--primary);">전체</button>
-      <button class="btn btn-outline" id="predFilterHard" onclick="renderPrediction('hard')">오답률 50%+</button>
-      <button class="btn btn-outline" id="predFilterMatch" onclick="renderPrediction('match')">예측 일치</button>
-      <button class="btn btn-outline" id="predFilterMiss" onclick="renderPrediction('miss')">예측 빗나감</button>
-    </div>
+  <div id="predNoData" class="alert alert-warn">회차를 선택하면 예측 선지비율이 표시됩니다.</div>
+  <div id="predSummaryArea" style="display:none">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px"><span style="display:inline-block;width:12px;height:8px;background:#c7d2fe;border-radius:2px"></span> 예측 &nbsp; <span style="display:inline-block;width:12px;height:8px;background:#4f46e5;border-radius:2px"></span> 실제(학생)</div>
     <div class="pred-grid" id="predGrid"></div>
   </div>
 </div>
 
-<!-- 토스트 -->
-<div id="toast" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 20px;border-radius:30px;font-size:13px;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;"></div>
+<div id="toast" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 20px;border-radius:30px;font-size:13px;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999"></div>
 
 <script>
-// ─── 상수 ───
-const SHEET_ID   = '1jLBY4aD5EFqNK0F3YQ6nbCI8_eIEz_XK7iiHfj8FNs0';
-const FORM_URL   = 'https://docs.google.com/forms/d/e/1FAIpQLSdcp2hK4H5I4f6xGuwt75VVDbRfstiIT0ItyT-NL6uL7lgg2Q/viewform';
-// ↓ examProxy.gs 배포 후 Web App URL 여기에 붙여넣기
-const PROXY_URL  = 'https://script.google.com/macros/s/AKfycbxsk-vfnp11X2u9G33ddpkcuaLH8WhFc_4XCcgbcwNlICNwDNVsF0JEwGw_nvpiV0yllQ/exec';
-const NUM_Q      = 45;
-const G_THRES    = [4,11,23,40,60,77,89,96];  // 수능 누적 % 기준
-const GRADE_COLORS = ['#7c3aed','#2563eb','#0891b2','#059669','#65a30d','#ca8a04','#ea580c','#dc2626','#9f1239'];
+const ROUNDS = [{"id": "DArchive1회", "name": "D.Archive 1회", "brand": "D.Archive", "sheetLabel": "1회", "target1": 8.5, "ans": [1, 5, 2, 3, 2, 3, 1, 5, 5, 1, 1, 2, 1, 2, 1, 1, 4, 2, 1, 2, 5, 1, 4, 5, 4, 5, 3, 5, 3, 3, 2, 4, 3, 4, 4, 3, 4, 4, 4, 2, 1, 5, 3, 5, 4], "pts": [2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 3, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 3, 2, 3, 2, 3, 2, 2, 3, 2, 3, 2, 2, 3, 2, 2, 2], "pred": [[93, 2, 2, 2, 1], [1, 2, 2, 3, 92], [2, 90, 3, 3, 2], [2, 3, 91, 3, 1], [3, 90, 3, 3, 1], [3, 4, 85, 5, 3], [90, 3, 3, 3, 1], [2, 3, 2, 2, 91], [3, 3, 2, 3, 89], [88, 4, 3, 3, 2], [92, 3, 2, 2, 1], [5, 80, 6, 5, 4], [85, 5, 4, 3, 3], [6, 78, 7, 5, 4], [83, 6, 5, 3, 3], [92, 3, 2, 2, 1], [2, 2, 2, 93, 1], [3, 92, 2, 2, 1], [88, 5, 3, 2, 2], [3, 87, 3, 4, 3], [7, 4, 10, 7, 72], [84, 4, 4, 3, 5], [6, 8, 20, 58, 8], [6, 12, 8, 8, 66], [4, 5, 7, 82, 2], [4, 3, 4, 4, 85], [2, 2, 90, 3, 3], [5, 4, 4, 3, 84], [9, 10, 52, 11, 18], [7, 8, 52, 18, 15], [9, 68, 6, 10, 7], [12, 8, 23, 50, 7], [12, 10, 58, 14, 6], [8, 23, 9, 47, 13], [4, 5, 6, 80, 5], [5, 31, 55, 6, 3], [26, 14, 11, 40, 9], [5, 7, 10, 52, 26], [7, 9, 27, 44, 13], [6, 76, 8, 6, 4], [72, 9, 8, 6, 5], [6, 10, 11, 15, 58], [5, 6, 78, 7, 4], [4, 5, 5, 6, 80], [5, 4, 5, 82, 4]], "types": ["듣기(목적)", "듣기(의견)", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기(응답)", "듣기(응답)", "듣기(상황)", "듣기(세트)", "듣기(세트)", "목적", "심경변화", "주장", "함축의미", "요지", "주제", "제목", "도표", "내용일치(인물)", "안내문", "안내문", "어법", "어휘", "빈칸(단어)", "빈칸", "빈칸", "빈칸", "무관문장", "순서", "순서", "삽입", "삽입", "요약문", "장문(제목)", "장문(어휘)", "복합(순서)", "복합(지칭)", "복합(일치)"], "diffs": ["하", "하", "하", "하", "하", "중", "하", "하", "하", "하", "하", "중", "중", "중", "중", "하", "하", "하", "하", "하", "중", "하", "중상", "중상", "중", "하", "하", "하", "상", "상", "중", "상", "중상", "상", "중", "상", "최상", "상", "상", "중", "중", "중상", "하", "하", "하"], "tags": ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "극성단조", "", "부분정보(③)", "무관어(①instinct)", "계산비교(③)", "", "", "", "수일치(③)·what구문(⑤)", "인접어휘(④)", "반지지(⑤)", "상식개입(③위기심각도)", "국소독해", "인과역전(②)", "", "예시위치(②B-A-C)", "It선행사(①)", "But대조(⑤)", "지시어선행(③)", "", "", "극성어휘", "", "", ""]}, {"id": "DArchive2회", "name": "D.Archive 2회", "brand": "D.Archive", "sheetLabel": "2회", "target1": 8.5, "ans": [1, 1, 5, 4, 4, 3, 1, 5, 5, 2, 1, 2, 1, 3, 4, 2, 5, 3, 3, 1, 4, 1, 3, 1, 5, 4, 3, 4, 5, 4, 2, 5, 5, 3, 4, 2, 5, 5, 4, 2, 2, 5, 4, 3, 3], "pts": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 3, 2, 3, 2, 3, 2, 2, 3, 2, 3, 2, 2, 3, 2, 2, 2], "pred": [[93, 2, 2, 2, 1], [92, 2, 2, 2, 2], [2, 3, 2, 3, 90], [2, 3, 3, 91, 1], [3, 3, 3, 90, 1], [3, 4, 88, 3, 2], [90, 3, 3, 3, 1], [2, 3, 2, 2, 91], [3, 3, 2, 3, 89], [4, 88, 4, 2, 2], [92, 3, 2, 2, 1], [5, 80, 6, 5, 4], [85, 5, 4, 3, 3], [6, 7, 78, 5, 4], [5, 6, 4, 82, 3], [3, 92, 2, 2, 1], [2, 2, 2, 1, 93], [2, 3, 92, 2, 1], [3, 4, 88, 3, 2], [87, 4, 4, 3, 2], [5, 7, 9, 72, 7], [84, 5, 4, 4, 3], [7, 12, 60, 13, 8], [65, 10, 7, 6, 12], [4, 5, 5, 4, 82], [4, 4, 4, 85, 3], [2, 3, 90, 3, 2], [4, 4, 5, 84, 3], [22, 8, 9, 11, 50], [12, 7, 9, 52, 20], [7, 68, 9, 6, 10], [6, 8, 10, 21, 55], [7, 20, 7, 8, 58], [8, 24, 48, 12, 8], [4, 6, 6, 80, 4], [5, 58, 24, 7, 6], [6, 20, 14, 15, 45], [5, 22, 8, 10, 55], [5, 8, 20, 47, 20], [6, 78, 7, 5, 4], [8, 72, 9, 6, 5], [6, 9, 11, 16, 58], [4, 5, 6, 82, 3], [4, 5, 84, 4, 3], [4, 4, 84, 5, 3]], "types": ["듣기(목적)", "듣기(의견)", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기(응답)", "듣기(응답)", "듣기(상황)", "듣기(세트)", "듣기(세트)", "목적", "심경변화", "주장", "함축의미", "요지", "주제", "제목", "도표", "내용일치(인물)", "안내문", "안내문", "어법", "어휘", "빈칸(형용사)", "빈칸", "빈칸", "빈칸", "무관문장", "순서", "순서", "삽입", "삽입", "요약문", "장문(제목)", "장문(어휘)", "복합(순서)", "복합(지칭)", "복합(일치)"], "diffs": ["하", "하", "하", "하", "하", "하", "하", "하", "하", "하", "하", "중", "중", "중", "중", "하", "하", "하", "하", "하", "중", "하", "중상", "중상", "중", "하", "하", "하", "상", "상", "중", "중상", "중상", "상", "중", "중상", "최상", "상", "상", "중", "중", "중상", "하", "하", "하"], "tags": ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "극성단조", "", "포괄범위(②④)", "통념반전(⑤)", "", "", "", "", "병렬(⑤)·cleft where(①)", "반의어(④roughly→precisely)", "반지지(③⑤)", "역방향(④객관성확보)", "키워드재활용(②hierarchies)", "Popper키워드(②)", "", "지시어사슬", "this선행사(C)·In other words(B)", "시간대조단서", "For instance 예시연결", "", "", "극성어휘", "", "", ""]}, {"id": "DArchive3회", "name": "D.Archive 3회", "brand": "D.Archive", "sheetLabel": "3회", "target1": 7.5, "ans": [1, 2, 3, 5, 4, 2, 2, 3, 4, 2, 4, 2, 4, 1, 1, 1, 4, 1, 2, 5, 2, 4, 3, 3, 4, 2, 3, 2, 5, 5, 3, 4, 3, 5, 4, 2, 5, 3, 4, 2, 1, 5, 3, 3, 4], "pts": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 3, 3, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 3, 3, 2, 2, 3, 2, 3, 2, 2, 3, 2, 2, 2], "pred": [[93, 2, 2, 2, 1], [2, 92, 2, 2, 2], [2, 3, 90, 3, 2], [2, 2, 3, 2, 91], [3, 3, 3, 90, 1], [4, 88, 4, 2, 2], [3, 90, 3, 3, 1], [2, 3, 91, 3, 1], [3, 3, 3, 89, 2], [4, 88, 4, 2, 2], [5, 6, 5, 80, 4], [5, 85, 5, 3, 2], [4, 5, 4, 85, 2], [78, 7, 6, 5, 4], [82, 6, 5, 4, 3], [92, 3, 2, 2, 1], [2, 2, 2, 93, 1], [92, 3, 2, 2, 1], [4, 88, 4, 2, 2], [3, 4, 3, 3, 87], [22, 58, 7, 6, 7], [4, 4, 4, 84, 4], [6, 16, 62, 9, 7], [10, 7, 68, 6, 9], [4, 5, 5, 82, 4], [4, 85, 4, 4, 3], [2, 3, 90, 3, 2], [5, 84, 4, 4, 3], [7, 9, 10, 22, 52], [6, 15, 11, 18, 50], [6, 8, 70, 10, 6], [7, 8, 12, 55, 18], [6, 8, 52, 10, 24], [8, 7, 17, 20, 48], [4, 5, 7, 80, 4], [5, 60, 22, 7, 6], [26, 9, 8, 15, 42], [5, 16, 58, 13, 8], [5, 26, 12, 44, 13], [6, 78, 6, 6, 4], [72, 9, 8, 6, 5], [6, 9, 11, 16, 58], [4, 5, 82, 6, 3], [4, 5, 84, 4, 3], [4, 4, 4, 84, 4]], "types": ["듣기(목적)", "듣기(의견)", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기(응답)", "듣기(응답)", "듣기(상황)", "듣기(세트)", "듣기(세트)", "목적", "심경변화", "주장", "함축의미", "요지", "주제", "제목", "도표", "내용일치(인물)", "안내문", "안내문", "어법", "어휘", "빈칸(단어)", "빈칸", "빈칸", "빈칸", "무관문장", "순서", "순서", "삽입", "삽입", "요약문", "장문(제목)", "장문(어휘)", "복합(순서)", "복합(지칭)", "복합(일치)"], "diffs": ["하", "하", "하", "하", "하", "하", "하", "하", "하", "하", "중", "중", "중", "중", "중", "하", "하", "하", "하", "하", "중상", "하", "중상", "중", "중", "하", "하", "하", "상", "상", "중", "중상", "상", "상", "중", "중상", "최상", "중상", "최상", "중", "중", "중상", "하", "하", "하"], "tags": ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "직역함정(①ignorant)", "", "반지지(②neutral)", "포괄오류(①⑤)", "", "", "", "", "병렬(⑤ensures→ensure)·④expecting 매력", "반의어(⑤improves→undermines)", "반대(④conventional)", "키워드재활용(⑤law of nature)", "키워드재활용(⑤bridge)", "반대함정(③hygiene)", "", "But대조+In other words", "They선행사(C→B)", "in doing so 선행사", "This선행사+But", "", "", "극성어휘", "", "", ""]}, {"id": "DFINE1회", "name": "D.FINE 1회", "brand": "D.FINE", "sheetLabel": "1회", "target1": 7.0, "ans": [2, 5, 1, 3, 2, 3, 3, 3, 4, 1, 2, 1, 5, 1, 1, 2, 4, 1, 1, 2, 5, 4, 5, 2, 5, 3, 4, 2, 4, 5, 4, 2, 4, 3, 3, 3, 2, 2, 3, 1, 3, 3, 5, 5, 4], "pts": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 3, 3, 2, 2, 3, 2, 3, 2, 2, 3, 2, 2, 2], "pred": [[3, 92, 2, 2, 1], [2, 2, 2, 3, 91], [91, 3, 2, 3, 1], [2, 3, 90, 3, 2], [3, 89, 3, 3, 2], [3, 4, 88, 3, 2], [3, 3, 90, 2, 2], [2, 3, 91, 3, 1], [2, 3, 3, 90, 2], [89, 4, 3, 2, 2], [3, 90, 3, 2, 2], [80, 6, 5, 5, 4], [5, 5, 4, 4, 82], [80, 7, 5, 4, 4], [85, 5, 4, 3, 3], [3, 92, 2, 2, 1], [2, 2, 2, 93, 1], [92, 3, 2, 2, 1], [88, 5, 3, 2, 2], [3, 87, 4, 3, 3], [10, 7, 12, 8, 63], [4, 4, 5, 83, 4], [6, 20, 8, 8, 58], [20, 52, 7, 18, 3], [4, 5, 5, 4, 82], [4, 4, 85, 4, 3], [3, 3, 4, 86, 4], [5, 84, 4, 4, 3], [9, 10, 12, 52, 17], [7, 9, 11, 18, 55], [8, 10, 9, 66, 7], [8, 55, 8, 22, 7], [8, 20, 10, 55, 7], [8, 18, 50, 14, 10], [4, 6, 78, 7, 5], [5, 16, 60, 11, 8], [8, 45, 14, 24, 9], [6, 58, 10, 16, 10], [6, 14, 44, 16, 20], [72, 9, 8, 6, 5], [7, 8, 72, 7, 6], [7, 10, 58, 9, 16], [4, 5, 5, 4, 82], [4, 4, 4, 5, 83], [4, 4, 4, 84, 4]], "types": ["듣기(목적)", "듣기(의견)", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기(응답)", "듣기(응답)", "듣기(상황)", "듣기(세트)", "듣기(세트)", "목적", "심경변화", "주장", "함축의미", "요지", "주제", "제목", "도표", "내용일치(인물)", "안내문", "안내문", "어법", "어휘", "빈칸(형용사)", "빈칸", "빈칸", "빈칸", "무관문장", "순서", "순서", "삽입", "삽입", "요약문", "장문(제목)", "장문(어휘)", "복합(순서)", "복합(지칭)", "복합(일치)"], "diffs": ["하", "하", "하", "하", "하", "하", "하", "하", "하", "하", "하", "중", "중", "중", "중", "하", "하", "하", "하", "하", "중상", "하", "중상", "상", "중", "하", "하", "하", "상", "상", "중", "중상", "상", "상", "중", "중상", "최상", "중상", "최상", "중", "중", "중상", "하", "하", "하"], "tags": ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "직역함정(③replicate)", "", "통념유도(②necessity)", "포괄경합(①④)", "", "", "", "", "which관계사(③)·병렬(④)", "반의(⑤invisible→visible)", "반지지(①inconsistent)", "상식개입(④pack leader)", "역방향(②)", "극단선지(②⑤)", "", "not easily→However 대조", "But대조+역계산(C말미)", "This 지시어", "물리단서 부재→미적전환", "", "", "극성어휘", "", "", ""]}, {"id": "DFINE2회", "name": "D.FINE 2회", "brand": "D.FINE", "sheetLabel": "2회", "target1": 7.0, "ans": [2, 5, 2, 3, 1, 4, 2, 4, 5, 2, 1, 4, 2, 1, 1, 1, 4, 5, 1, 3, 4, 5, 3, 2, 4, 3, 3, 2, 2, 3, 5, 4, 4, 3, 4, 4, 5, 3, 5, 2, 3, 5, 4, 5, 4], "pts": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 3, 2, 2, 3, 3, 2, 2, 3, 2, 3, 2, 2, 3, 2, 2, 2], "pred": [[3, 92, 2, 2, 1], [2, 2, 2, 3, 91], [3, 90, 3, 2, 2], [2, 3, 90, 3, 2], [90, 3, 3, 2, 2], [2, 3, 3, 90, 2], [3, 90, 3, 2, 2], [2, 3, 3, 90, 2], [2, 3, 2, 3, 90], [3, 89, 4, 2, 2], [80, 6, 5, 5, 4], [4, 5, 4, 85, 2], [6, 80, 6, 4, 4], [80, 7, 5, 4, 4], [85, 5, 4, 3, 3], [92, 3, 2, 2, 1], [2, 2, 2, 93, 1], [3, 3, 2, 2, 90], [88, 5, 3, 2, 2], [3, 4, 86, 4, 3], [8, 10, 10, 60, 12], [5, 4, 5, 4, 82], [10, 18, 50, 7, 15], [7, 58, 10, 18, 7], [4, 5, 5, 82, 4], [4, 4, 85, 4, 3], [3, 4, 86, 4, 3], [5, 84, 4, 4, 3], [10, 52, 12, 9, 17], [8, 11, 52, 17, 12], [10, 8, 20, 7, 55], [7, 20, 10, 55, 8], [18, 8, 10, 55, 9], [8, 18, 50, 14, 10], [5, 6, 7, 78, 4], [16, 10, 12, 54, 8], [9, 14, 10, 20, 47], [6, 10, 58, 14, 12], [6, 12, 14, 16, 52], [7, 58, 9, 10, 16], [7, 8, 72, 7, 6], [7, 10, 11, 14, 58], [4, 5, 5, 82, 4], [4, 4, 4, 5, 83], [4, 4, 4, 84, 4]], "types": ["듣기(목적)", "듣기(의견)", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기(응답)", "듣기(응답)", "듣기(상황)", "듣기(세트)", "듣기(세트)", "목적", "심경변화", "주장", "함축의미", "요지", "주제", "제목", "도표", "내용일치(인물)", "안내문", "안내문", "어법", "어휘", "빈칸(형용사)", "빈칸", "빈칸", "빈칸", "무관문장", "순서", "순서", "삽입", "삽입", "요약문", "장문(제목)", "장문(어휘)", "복합(순서)", "복합(지칭)", "복합(일치)"], "diffs": ["하", "하", "하", "하", "하", "하", "하", "하", "하", "하", "중", "중", "중", "중", "중", "하", "하", "하", "하", "하", "중상", "하", "상", "중상", "중", "하", "하", "하", "상", "상", "중상", "중상", "상", "상", "중", "중상", "최상", "중상", "최상", "중상", "중", "중상", "하", "하", "하"], "tags": ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "비유역방향(⑤damaged)", "", "키워드경합(⑤usefulness)", "통념유도(⑤dominance)", "", "", "", "", "분사(②oneself)·병렬to make(③)", "반의(③undermines 유지)", "반지지(③temporary)", "포괄유도(⑤consumerism)", "극단(①rational choice)", "극단선지(①④)", "", "These results 지시어(A후행)", "가격프리미엄 예시=C후행", "initial direction 지시어", "she points out+This 회복", "interchangeable/equivalent 경합", "", "극성어휘", "", "", ""]}, {"id": "DFINE3회", "name": "D.FINE 3회", "brand": "D.FINE", "sheetLabel": "3회", "target1": 6.5, "ans": [1, 1, 1, 5, 1, 5, 3, 3, 4, 4, 2, 4, 2, 2, 4, 1, 3, 2, 3, 1, 2, 1, 4, 3, 5, 5, 3, 4, 4, 5, 2, 1, 5, 3, 4, 2, 5, 4, 4, 2, 1, 5, 5, 2, 3], "pts": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 3, 3, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 3, 3, 2, 2, 3, 2, 3, 2, 2, 3, 2, 2, 2], "pred": [[92, 3, 2, 2, 1], [91, 3, 2, 2, 2], [90, 3, 3, 2, 2], [2, 3, 2, 3, 90], [90, 3, 3, 2, 2], [2, 2, 3, 3, 90], [3, 3, 90, 2, 2], [2, 3, 91, 2, 2], [2, 3, 3, 90, 2], [3, 2, 3, 90, 2], [6, 80, 6, 4, 4], [4, 5, 4, 85, 2], [6, 80, 6, 4, 4], [7, 78, 6, 5, 4], [5, 5, 4, 83, 3], [92, 3, 2, 2, 1], [2, 2, 93, 2, 1], [3, 92, 2, 2, 1], [3, 4, 88, 3, 2], [87, 4, 4, 3, 2], [12, 55, 10, 15, 8], [83, 5, 4, 4, 4], [7, 10, 10, 58, 15], [10, 15, 55, 8, 12], [4, 5, 5, 4, 82], [4, 4, 4, 3, 85], [3, 4, 86, 4, 3], [4, 4, 5, 84, 3], [9, 10, 12, 52, 17], [8, 10, 12, 15, 55], [10, 55, 20, 7, 8], [55, 8, 20, 10, 7], [10, 18, 10, 7, 55], [18, 8, 50, 14, 10], [4, 6, 7, 78, 5], [6, 58, 10, 18, 8], [8, 14, 12, 20, 46], [6, 10, 14, 58, 12], [7, 12, 16, 45, 20], [8, 55, 10, 10, 17], [72, 9, 8, 6, 5], [7, 10, 11, 14, 58], [4, 5, 5, 4, 82], [4, 84, 4, 4, 4], [4, 4, 84, 5, 3]], "types": ["듣기(목적)", "듣기(의견)", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기", "듣기(응답)", "듣기(응답)", "듣기(상황)", "듣기(세트)", "듣기(세트)", "목적", "심경변화", "주장", "함축의미", "요지", "주제", "제목", "도표", "내용일치(인물)", "안내문", "안내문", "어법", "어휘", "빈칸(동사)", "빈칸", "빈칸", "빈칸", "무관문장", "순서", "순서", "삽입", "삽입", "요약문", "장문(제목)", "장문(어휘)", "복합(순서)", "복합(지칭)", "복합(일치)"], "diffs": ["하", "하", "하", "하", "하", "하", "하", "하", "하", "하", "중", "중", "중", "중", "중", "하", "하", "하", "하", "하", "상", "하", "중상", "중상", "중", "하", "하", "하", "상", "상", "중상", "중상", "상", "상", "중", "중상", "최상", "중상", "최상", "중상", "중", "중상", "하", "하", "하"], "tags": ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "무의미화(④confusion)", "", "통념유도(②moral duty)", "키워드경합(①⑤)", "", "", "", "", "분사presenting(④)·병렬(⑤)", "반의(⑤resistant→susceptible)", "반전유도(③challenge)", "역방향(④synchronized)", "키워드재활용(②core values)", "반대(①undermines)", "", "confusion→But 전개", "chaotic but predictable(C후행)", "This especially true 선행", "Accordingly 인과선행", "disregard/hostility 경합", "", "극성어휘", "", "", ""]}];
+const SHEET_ID='1jLBY4aD5EFqNK0F3YQ6nbCI8_eIEz_XK7iiHfj8FNs0';
+const FORM_URL='https://docs.google.com/forms/d/e/1FAIpQLSdcp2hK4H5I4f6xGuwt75VVDbRfstiIT0ItyT-NL6uL7lgg2Q/viewform';
+const NUM_Q=45;
+const G_THRES=[4,11,23,40,60,77,89,96];
+const GRADE_COLORS=['#7c3aed','#2563eb','#0891b2','#059669','#65a30d','#ca8a04','#ea580c','#dc2626','#9f1239'];
+const CIRC=['','①','②','③','④','⑤'];
+let R=ROUNDS[0];            // 선택된 회차
+let students=[];
+let rawRows=[];             // 시트 전체 행(누적 약점용)
+let gradeChart=null,scoreChart=null,autoTimer=null;
+function normType(t){return String(t||'').split('(')[0].trim();}
 
-// ─── 상태 ───
-let answers   = new Array(NUM_Q).fill(0);
-let pts       = new Array(NUM_Q).fill(2);
-let target1   = 4;
-let examName  = '';
-let students  = [];       // 현재 필터된 학생
-let allStudents = [];     // 전체 학생 (필터 전)
-let availableRounds = []; // 존재하는 회차 목록
-let selectedRound = '전체';
-let gradeChart = null, scoreChart = null;
-let autoTimer  = null;
-
-// ── 선지 예측 데이터 ──
-let predDist  = [];  // predDist[i][j] = i번 문항, j번 선지(0-indexed) 예측 %
-let qTypes    = [];  // 문항 유형
-let qDiffs    = [];  // 난이도
-let qTags     = [];  // 오답유형태그
-let qNotes    = [];  // 메모
-let predFilter= 'all';
-let hasPredData = false;
-
-// ─── 초기화 ───
+function circledToInt(v){
+  if(v==null)return 0;const s=String(v).trim();
+  const m={'①':1,'②':2,'③':3,'④':4,'⑤':5,'❶':1,'❷':2,'❸':3,'❹':4,'❺':5,'➀':1,'➁':2,'➂':3,'➃':4,'➄':5};
+  if(m[s]!==undefined)return m[s];
+  for(const k in m){if(s.indexOf(k)>=0)return m[k];}
+  const n=parseInt(s);return(n>=1&&n<=5)?n:0;
+}
 (function init(){
-  buildGrid();
-  loadCfg();           // localStorage 즉시 로드
-  loadCfgFromGAS();    // GAS 공유 설정 비동기 로드 (덮어씀)
-  predDist = Array.from({length:NUM_Q},()=>new Array(5).fill(0));
-  qTypes=[]; qDiffs=[]; qTags=[]; qNotes=[];
-  updTotPts();
-  document.getElementById('fUrl').textContent  = FORM_URL;
-  document.getElementById('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(FORM_URL);
+  const sel=document.getElementById('roundSel');
+  sel.innerHTML=ROUNDS.map((r,i)=>`<option value="${i}">${r.name}</option>`).join('');
+  document.getElementById('fUrl').textContent=FORM_URL;
+  document.getElementById('qrImg').src='https://api.qrserver.com/v1/create-qr-code/?size=150x150&data='+encodeURIComponent(FORM_URL);
+  selectRound(0);
 })();
-
-// ─── 탭 전환 ───
-function switchTab(name, el){
+function selectRound(i){
+  R=ROUNDS[i];
+  const info=document.getElementById('roundInfo');
+  const tot=R.pts.reduce((a,b)=>a+b,0);
+  const n3=R.ans.map((_,k)=>k+1).filter(k=>R.pts[k-1]===3);
+  info.innerHTML=`<b>${R.name}</b> · 총 ${tot}점 · 3점 ${n3.length}개(${n3.join(',')}) · 예측 1등급 ${R.target1}% · 시트 회차라벨 "<b>${R.sheetLabel}</b>"`;
+  document.getElementById('keyGrid').innerHTML=R.ans.map((a,k)=>
+    `<div class="kc${R.pts[k]===3?' p3':''}"><div class="kn">${k+1}번</div><div class="ka">${CIRC[a]}</div></div>`).join('');
+  showToast(R.name+' 정답 로드됨');
+  if(students.length) renderAll();
+}
+function switchTab(name,el){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('p-'+name).classList.add('active');
-  if(name !== 'setup' && students.length === 0) loadSheet();
-  if(name === 'weakness') renderWeakness();
-  if(name === 'prediction') renderPrediction(predFilter);
+  el.classList.add('active');document.getElementById('p-'+name).classList.add('active');
+  if(name!=='setup'&&students.length===0)loadSheet();
+  if(name==='weakness')renderWeakness();
+  if(name==='prediction')renderPrediction();
 }
+function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',1800);}
 
-// ─── 정답 그리드 ───
-function buildGrid(){
-  const g = document.getElementById('ansGrid');
-  g.innerHTML = '';
-  for(let i=0;i<NUM_Q;i++){
-    const d = document.createElement('div');
-    d.className = 'ans-item';
-    d.innerHTML = `<label>${i+1}번</label>
-      <div class="ans-row">
-        <select id="a${i}" onchange="onAnsChange(${i},this)">
-          <option value="0">—</option>
-          <option value="1">①</option><option value="2">②</option>
-          <option value="3">③</option><option value="4">④</option><option value="5">⑤</option>
-        </select>
-        <select class="sc-sel" id="p${i}" onchange="pts[${i}]=+this.value;updTotPts();saveCfg()">
-          <option value="2">2점</option><option value="3">3점</option>
-        </select>
-      </div>`;
-    g.appendChild(d);
-  }
-}
-
-function onAnsChange(i, sel){
-  answers[i] = +sel.value;
-  sel.className = 'ans-row select' + (answers[i]>0?' answered':'');
-  // 클래스는 select에 적용
-  sel.style.borderColor = answers[i]>0 ? 'var(--primary)' : 'var(--border)';
-  sel.style.background  = answers[i]>0 ? 'var(--primary-light)' : '';
-  saveCfg();
-}
-
-function updTotPts(){
-  document.getElementById('totPts').textContent = pts.reduce((a,b)=>a+b,0);
-}
-
-function setAllPts(v){
-  pts = new Array(NUM_Q).fill(v);
-  for(let i=0;i<NUM_Q;i++){
-    const el = document.getElementById('p'+i);
-    if(el) el.value = v;
-  }
-  updTotPts(); saveCfg();
-}
-
-// ─── 설정 저장/불러오기 ───
-function saveCfg(){
-  for(let i=0;i<NUM_Q;i++){
-    const ae=document.getElementById('a'+i); const pe=document.getElementById('p'+i);
-    if(ae) answers[i]=+ae.value; if(pe) pts[i]=+pe.value;
-  }
-  target1  = parseFloat(document.getElementById('target1').value)||4;
-  examName = document.getElementById('examName').value||'';
-  try{
-    localStorage.setItem('exam_a', JSON.stringify(answers));
-    localStorage.setItem('exam_p', JSON.stringify(pts));
-    localStorage.setItem('exam_t', target1);
-    localStorage.setItem('exam_n', examName);
-  }catch(e){}
-  updTotPts();
-  // GAS에도 저장 (2초 디바운스)
-  clearTimeout(_gasSaveTimer);
-  _gasSaveTimer = setTimeout(saveCfgToGAS, 2000);
-}
-
-// GAS에 설정 저장 (공유 저장소)
-async function saveCfgToGAS(){
-  if(!PROXY_URL) return;
-  try{
-    const cfg = encodeURIComponent(JSON.stringify({a:answers,p:pts,t:target1,n:examName}));
-    await fetch(PROXY_URL + '?action=saveConfig&cfg=' + cfg);
-  }catch(e){}
-}
-
-// GAS에서 설정 불러오기 (다른 컴퓨터와 공유)
-async function loadCfgFromGAS(){
-  if(!PROXY_URL) return false;
-  try{
-    const res = await fetch(PROXY_URL + '?action=loadConfig');
-    const text = (await res.text()).trim();
-    if(!text) return false;
-    const cfg = JSON.parse(text);
-    if(cfg.a) answers=cfg.a;
-    if(cfg.p) pts=cfg.p;
-    if(cfg.t){ target1=parseFloat(cfg.t); document.getElementById('target1').value=target1; }
-    if(cfg.n){ examName=cfg.n; document.getElementById('examName').value=examName; }
-    // 3-pass DOM 업데이트
-    for(let i=0;i<NUM_Q;i++){ const pe=document.getElementById('p'+i); if(pe) pe.value=pts[i]; }
-    for(let i=0;i<NUM_Q;i++){ const ae=document.getElementById('a'+i); if(ae) ae.value=answers[i]; }
-    for(let i=0;i<NUM_Q;i++){
-      const ae=document.getElementById('a'+i);
-      if(ae){ ae.className='ans-row select'+(answers[i]>0?' answered':'');
-        ae.style.borderColor=answers[i]>0?'var(--primary)':'var(--border)';
-        ae.style.background =answers[i]>0?'var(--primary-light)':''; }
-    }
-    try{
-      localStorage.setItem('exam_a',JSON.stringify(answers));
-      localStorage.setItem('exam_p',JSON.stringify(pts));
-      localStorage.setItem('exam_t',target1);
-      localStorage.setItem('exam_n',examName);
-    }catch(e){}
-    updTotPts();
-    if(allStudents.length) recalcStudents();
-    return true;
-  }catch(e){ return false; }
-}
-
-function loadCfg(){
-  try{
-    const sa=JSON.parse(localStorage.getItem('exam_a'));
-    const sp=JSON.parse(localStorage.getItem('exam_p'));
-    const st=localStorage.getItem('exam_t');
-    const sn=localStorage.getItem('exam_n');
-    if(sa) answers=sa; if(sp) pts=sp;
-    if(st){ target1=parseFloat(st); document.getElementById('target1').value=target1; }
-    if(sn){ examName=sn; document.getElementById('examName').value=sn; }
-    // ① 배점 먼저 전부 세팅
-    for(let i=0;i<NUM_Q;i++){
-      const pe=document.getElementById('p'+i);
-      if(pe) pe.value=pts[i];
-    }
-    // ② 정답 전부 세팅 (saveCfg 아직 안 부름)
-    for(let i=0;i<NUM_Q;i++){
-      const ae=document.getElementById('a'+i);
-      if(ae) ae.value=answers[i];
-    }
-    // ③ 스타일만 업데이트
-    for(let i=0;i<NUM_Q;i++){
-      const ae=document.getElementById('a'+i);
-      if(ae){
-        ae.className='ans-row select'+(answers[i]>0?' answered':'');
-        ae.style.borderColor=answers[i]>0?'var(--primary)':'var(--border)';
-        ae.style.background =answers[i]>0?'var(--primary-light)':'';
-      }
-    }
-    // ④ saveCfg 1회만 (DOM 완성 후)
-    saveCfg();
-  }catch(e){}
-}
-
-// ─── URL 복사 ───
-function copyUrl(){
-  navigator.clipboard.writeText(FORM_URL).then(()=>showToast('URL이 복사됐습니다!')).catch(()=>{
-    prompt('아래 URL을 복사하세요:', FORM_URL);
-  });
-}
-
-// ─── 토스트 ───
-function showToast(msg){
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.style.opacity='1';
-  setTimeout(()=>{ t.style.opacity='0'; }, 2000);
-}
-
-// ─── 데이터 로드 ───
 async function loadSheet(){
-  const statusEl = document.getElementById('lastUp');
-  statusEl.textContent = '불러오는 중...';
+  const s=document.getElementById('lastUp');s.textContent='불러오는 중...';
   try{
-    let csv = '';
-
-    if(window.cowork?.callMcpTool){
-      // ── Cowork 아티팩트 환경 ──
-      const r = await window.cowork.callMcpTool(
-        'mcp__35772252-0cd3-40ad-ac13-a40a62adeb71__download_file_content',
-        { fileId: SHEET_ID, exportMimeType: 'text/csv' }
-      );
-      const sc = r.structuredContent ?? JSON.parse((r.content||[{text:'{}'}])[0].text);
-      if(sc && sc.content){
-        try { csv = decodeURIComponent(escape(atob(sc.content))); }
-        catch(e2){ csv = sc.content; }
-      } else if(r.content && r.content[0]) {
-        csv = r.content[0].text || '';
-      }
-    } else {
-      // ── 브라우저 직접 열기 환경 ──
-      let url = '';
-      if(PROXY_URL) {
-        // GAS 웹앱 프록시 사용 (권장)
-        url = PROXY_URL;
-      } else {
-        // 직접 fetch (CORS 문제 발생 가능)
-        url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=%EC%84%A4%EB%AC%B8%EC%A7%80%20%EC%9D%91%EB%8B%B5%20%EC%8B%9C%ED%8A%B81`;
-      }
-      const res = await fetch(url);
-      if(!res.ok) throw new Error(`시트 접근 실패 (HTTP ${res.status})`);
-      csv = await res.text();
-      if(csv.startsWith('Error:')) throw new Error(csv.slice(7));
+    let csv='';
+    if(window.cowork&&window.cowork.callMcpTool){
+      const r=await window.cowork.callMcpTool('mcp__35772252-0cd3-40ad-ac13-a40a62adeb71__download_file_content',{fileId:SHEET_ID,exportMimeType:'text/csv'});
+      const sc=r.structuredContent??JSON.parse((r.content||[{text:'{}'}])[0].text);
+      if(sc&&sc.content){try{csv=decodeURIComponent(escape(atob(sc.content)))}catch(e){csv=sc.content}}
+      else if(r.content&&r.content[0])csv=r.content[0].text||'';
+    }else{
+      const res=await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`);
+      if(!res.ok)throw new Error('시트 접근 실패 — "링크가 있는 모든 사용자" 보기 공유 필요');
+      csv=await res.text();
     }
-
-    if(!csv) throw new Error('빈 응답');
+    if(!csv)throw new Error('빈 응답');
     processCSV(csv);
-    statusEl.textContent = '마지막 업데이트: ' + new Date().toLocaleTimeString('ko-KR');
-  }catch(e){
-    statusEl.textContent = '오류: ' + e.message;
-    showToast('로드 실패: ' + e.message);
-  }
-}
-
-// ─── CSV 파싱 ───
-function parseLine(line){
-  const cells=[]; let inQ=false, cell='';
-  for(let c=0;c<line.length;c++){
-    if(line[c]==='"') inQ=!inQ;
-    else if(line[c]===','&&!inQ){ cells.push(cell.trim()); cell=''; }
-    else cell+=line[c];
-  }
-  cells.push(cell.trim());
-  return cells;
+    s.textContent='업데이트: '+new Date().toLocaleTimeString('ko-KR')+' · '+R.name;
+  }catch(e){s.textContent='오류: '+e.message;showToast('로드 실패: '+e.message);}
 }
 function parseCSV(raw){
-  const lines = raw.trim().split('\n');
-  if(lines.length < 2) return {header:[], rows:[]};
-  const header = parseLine(lines[0]);
-  const rows=[];
-  for(let i=1;i<lines.length;i++){
-    const line=lines[i].trim(); if(!line) continue;
-    rows.push(parseLine(line));
-  }
-  return {header, rows};
+  const lines=raw.trim().split('\n');if(lines.length<2)return[];const rows=[];
+  for(let i=1;i<lines.length;i++){const line=lines[i];if(!line.trim())continue;
+    const c=[];let q=false,cur='';
+    for(let j=0;j<line.length;j++){const ch=line[j];
+      if(ch==='"')q=!q;else if(ch===','&&!q){c.push(cur.trim());cur='';}else cur+=ch;}
+    c.push(cur.trim());rows.push(c);}
+  return rows;
 }
-
-// ─── 채점 ───
-function scoreRow(studentAnss){
-  let total=0;
-  const correct=[];
-  for(let i=0;i<NUM_Q;i++){
-    const sa=parseInt(studentAnss[i])||0;
-    const ok = answers[i]>0 && sa===answers[i];
-    correct.push(ok);
-    if(ok) total+=pts[i];
-  }
-  return {total, correct};
-}
-
-// ─── 등급 ───
-function getGrade(rankPct){
-  for(let i=0;i<G_THRES.length;i++) if(rankPct<=G_THRES[i]) return i+1;
-  return 9;
-}
-
-// ─── 전체 처리 ───
+function getGrade(p){for(let i=0;i<G_THRES.length;i++)if(p<=G_THRES[i])return i+1;return 9;}
+function normLabel(s){return String(s||'').replace(/\s/g,'').toLowerCase();}
 function processCSV(raw){
-  const hasAns = answers.some(a=>a>0);
-  document.getElementById('noAnsAlert').style.display = hasAns?'none':'block';
-
-  const {header, rows} = parseCSV(raw);
-  if(rows.length===0){
-    allStudents=[]; students=[]; renderAll(); renderRoundFilter(); return;
-  }
-
-  // 헤더에서 컬럼 위치 감지
-  const roundCol = header.findIndex(h=>h.includes('회차')||h.includes('시험명'));
-  const ansStart = header.findIndex(h=>h.trim()==='1번');
-  const nameCol  = header.findIndex(h=>h.includes('이름'));
-  const numCol   = header.findIndex(h=>h.trim()==='번호'||h.trim()==='수험번호');
-  const NC = nameCol>=0?nameCol:1;
-  const UC = numCol>=0?numCol:2;
-  const AS = ansStart>=0?ansStart:roundCol>=0?4:3; // 회차 있으면 4, 없으면 3
-
-  // 채점
-  const circleMap={'①':1,'②':2,'③':3,'④':4,'⑤':5,'❶':1,'❷':2,'❸':3,'❹':4,'❺':5,'➀':1,'➁':2,'➂':3,'➃':4,'➄':5};
-  allStudents = rows.map(row=>{
-    const ts    = row[0]||'';
-    const name  = row[NC]||'';
-    const num   = row[UC]||'';
-    const round = roundCol>=0 ? (row[roundCol]||'미선택') : null;
-    const sAnss = row.slice(AS, AS+NUM_Q).map(c=>{ const t=c.trim(); return circleMap[t]?String(circleMap[t]):t; });
-    const {total, correct} = scoreRow(sAnss);
-    const choices = sAnss.map(a=>parseInt(a)||0);
-    return {ts, name, num, round, total, correct, choices};
+  const rows=parseCSV(raw);
+  rawRows=rows;   // 누적 약점 탭에서 전 회차 사용
+  // 회차 필터: 회차열(답 45개 다음 열) 값이 선택 회차라벨을 포함하면 채점 대상
+  const anyLabel=rows.some(r=>String(r[3+NUM_Q]||'').trim()!=='');
+  const want=normLabel(R.sheetLabel);
+  const filtered=rows.filter(r=>{
+    if(!anyLabel)return true;                 // 회차칸이 아예 비어있는 옛 폼이면 전체
+    return normLabel(r[3+NUM_Q]).indexOf(want)>=0;
   });
-
-  // 회차 목록 추출
-  availableRounds = roundCol>=0
-    ? [...new Set(allStudents.map(s=>s.round).filter(Boolean))].sort()
-    : [];
-
-  // 필터 적용
-  if(!availableRounds.includes(selectedRound)) selectedRound='전체';
-  students = selectedRound==='전체' ? [...allStudents]
-           : allStudents.filter(s=>s.round===selectedRound);
-
-  renderRoundFilter();
-
-  // 등급: 점수 내림차순 정렬 후 순위% 계산
-  const sorted=[...students].sort((a,b)=>b.total-a.total);
-  const n=sorted.length;
-  // 동점자 처리: 같은 점수 그룹의 마지막 순위 %로 등급 결정
-  let i=0;
-  while(i<n){
-    let j=i;
-    while(j<n-1 && sorted[j+1].total===sorted[i].total) j++;
-    const pct = ((j+1)/n)*100;
-    const grade = getGrade(pct);
-    for(let k=i;k<=j;k++) sorted[k].grade=grade;
-    i=j+1;
-  }
-  // 원래 배열에 grade 반영
-  students.forEach(s=>{
-    const match=sorted.find(ss=>ss.ts===s.ts&&ss.name===s.name&&ss.num===s.num);
-    if(match) s.grade=match.grade;
+  students=filtered.map(row=>{
+    const ts=row[0]||'',name=row[1]||'',num=row[2]||'';
+    const sAnss=row.slice(3,3+NUM_Q);
+    const choices=sAnss.map(circledToInt);
+    let total=0;const correct=[];
+    for(let i=0;i<NUM_Q;i++){const ok=R.ans[i]>0&&choices[i]===R.ans[i];correct.push(ok);if(ok)total+=R.pts[i];}
+    return {ts,name,num,total,correct,choices};
   });
-
+  // 등급
+  const sorted=[...students].sort((a,b)=>b.total-a.total);const n=sorted.length;let i=0;
+  while(i<n){let j=i;while(j<n-1&&sorted[j+1].total===sorted[i].total)j++;
+    const g=getGrade(((j+1)/n)*100);for(let k=i;k<=j;k++)sorted[k].grade=g;i=j+1;}
+  students.forEach(st=>{const m=sorted.find(x=>x.ts===st.ts&&x.name===st.name&&x.num===st.num);if(m)st.grade=m.grade;});
   renderAll();
 }
-
-function renderAll(){
-  renderStats();
-  renderCharts();
-  renderAnalysis();
-  renderStudents();
-  renderPrediction(predFilter);
-}
-
-// ─── 통계 ───
+function renderAll(){renderStats();renderCharts();renderAnalysis();renderStudents();renderPrediction();}
 function renderStats(){
-  const n=students.length;
-  document.getElementById('sCnt').textContent = n+'명';
-  if(n===0){
-    ['sAvg','sMax','sMin','s1g','vsT','vsR'].forEach(id=>document.getElementById(id).textContent='—');
-    document.getElementById('vsMsg').textContent='';
-    return;
-  }
-  const sum=students.reduce((a,s)=>a+s.total,0);
-  const avg=(sum/n).toFixed(1);
-  const max=Math.max(...students.map(s=>s.total));
-  const min=Math.min(...students.map(s=>s.total));
-  const cnt1=students.filter(s=>s.grade===1).length;
-  const pct1=((cnt1/n)*100).toFixed(1);
-
-  document.getElementById('sAvg').textContent=avg+'점';
-  document.getElementById('sMax').textContent=max+'점';
-  document.getElementById('sMin').textContent=min+'점';
-  document.getElementById('s1g').textContent=pct1+'%';
-  document.getElementById('vsT').textContent=target1+'%';
-  document.getElementById('vsR').textContent=pct1+'%';
-
-  const diff=parseFloat(pct1)-target1;
-  let msg='';
-  if(n<5) msg='학생 수가 적어 등급 비율이 부정확할 수 있어요.';
-  else if(Math.abs(diff)<=1) msg='✅ 목표와 실제 1등급 비율이 거의 일치합니다!';
-  else if(diff>0) msg=`🔺 실제 1등급이 목표보다 ${diff.toFixed(1)}%p 높아요. 다음엔 난이도를 높여보세요.`;
-  else msg=`🔻 실제 1등급이 목표보다 ${Math.abs(diff).toFixed(1)}%p 낮아요. 다음엔 난이도를 낮춰보세요.`;
-  document.getElementById('vsMsg').textContent=msg;
+  const n=students.length;document.getElementById('sCnt').textContent=n+'명';
+  if(!n){['sAvg','sMax','sMin','s1g','vsT','vsR'].forEach(id=>document.getElementById(id).textContent='—');document.getElementById('vsMsg').textContent='';return;}
+  const avg=(students.reduce((a,s)=>a+s.total,0)/n).toFixed(1);
+  const mx=Math.max(...students.map(s=>s.total)),mn=Math.min(...students.map(s=>s.total));
+  const c1=students.filter(s=>s.grade===1).length,p1=((c1/n)*100).toFixed(1);
+  document.getElementById('sAvg').textContent=avg+'점';document.getElementById('sMax').textContent=mx+'점';
+  document.getElementById('sMin').textContent=mn+'점';document.getElementById('s1g').textContent=p1+'%';
+  document.getElementById('vsT').textContent=R.target1+'%';document.getElementById('vsR').textContent=p1+'%';
+  const d=parseFloat(p1)-R.target1;let m='';
+  if(n<5)m='표본이 적어 등급 비율은 참고용입니다.';
+  else if(Math.abs(d)<=1.5)m='✅ 예측과 실제 1등급 비율이 거의 일치합니다.';
+  else if(d>0)m=`🔺 실제 1등급이 예측보다 ${d.toFixed(1)}%p 높습니다(집단이 상위권이거나 노출 가능성).`;
+  else m=`🔻 실제 1등급이 예측보다 ${Math.abs(d).toFixed(1)}%p 낮습니다.`;
+  document.getElementById('vsMsg').textContent=m;
 }
-
-// ─── 차트 ───
 function renderCharts(){
-  // 등급 분포
-  const gcounts=new Array(9).fill(0);
-  students.forEach(s=>{if(s.grade) gcounts[s.grade-1]++;});
-
-  if(gradeChart) gradeChart.destroy();
-  const gCtx=document.getElementById('gradeChart');
-  if(gCtx){
-    gradeChart=new Chart(gCtx,{
-      type:'bar',
-      data:{
-        labels:['1등급','2등급','3등급','4등급','5등급','6등급','7등급','8등급','9등급'],
-        datasets:[{data:gcounts, backgroundColor:GRADE_COLORS, borderRadius:6, borderSkipped:false}]
-      },
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-        scales:{y:{ticks:{stepSize:1},beginAtZero:true}}}
-    });
-  }
-
-  // 뱃지
-  const bdg=document.getElementById('gradeBadges');
-  bdg.innerHTML='';
-  const n=students.length;
-  gcounts.forEach((c,i)=>{
-    if(c>0){
-      const pct=n>0?((c/n)*100).toFixed(1):0;
-      bdg.innerHTML+=`<span class="grade-badge g${i+1}">${i+1}등급 ${c}명 (${pct}%)</span>`;
-    }
-  });
-
-  // 점수 분포
-  if(students.length===0){if(scoreChart){scoreChart.destroy();scoreChart=null;}return;}
-  const maxPts=pts.reduce((a,b)=>a+b,0)||100;
-  const bins=10, bsz=Math.ceil(maxPts/bins);
-  const bcounts=new Array(bins).fill(0), blabels=[];
-  for(let i=0;i<bins;i++){
-    blabels.push(`${i*bsz}~${Math.min((i+1)*bsz,maxPts)}`);
-  }
-  students.forEach(s=>{
-    const b=Math.min(Math.floor(s.total/bsz),bins-1);
-    bcounts[b]++;
-  });
-
-  if(scoreChart) scoreChart.destroy();
-  const sCtx=document.getElementById('scoreChart');
-  if(sCtx){
-    scoreChart=new Chart(sCtx,{
-      type:'bar',
-      data:{labels:blabels,datasets:[{data:bcounts,backgroundColor:'#a5b4fc',borderRadius:5,borderSkipped:false}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-        scales:{y:{ticks:{stepSize:1},beginAtZero:true}}}
-    });
-  }
+  const gc=new Array(9).fill(0);students.forEach(s=>{if(s.grade)gc[s.grade-1]++;});
+  if(gradeChart)gradeChart.destroy();const g=document.getElementById('gradeChart');
+  if(g)gradeChart=new Chart(g,{type:'bar',data:{labels:['1','2','3','4','5','6','7','8','9'].map(x=>x+'등급'),datasets:[{data:gc,backgroundColor:GRADE_COLORS,borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{stepSize:1},beginAtZero:true}}}});
+  const bd=document.getElementById('gradeBadges');bd.innerHTML='';const n=students.length;
+  gc.forEach((c,i)=>{if(c>0)bd.innerHTML+=`<span class="grade-badge g${i+1}">${i+1}등급 ${c}명 (${((c/n)*100).toFixed(0)}%)</span>`;});
+  if(!n){if(scoreChart){scoreChart.destroy();scoreChart=null;}return;}
+  const mp=R.pts.reduce((a,b)=>a+b,0)||100,bins=10,bsz=Math.ceil(mp/bins);
+  const bc=new Array(bins).fill(0),bl=[];for(let i=0;i<bins;i++)bl.push(`${i*bsz}~${Math.min((i+1)*bsz,mp)}`);
+  students.forEach(s=>{bc[Math.min(Math.floor(s.total/bsz),bins-1)]++;});
+  if(scoreChart)scoreChart.destroy();const sc=document.getElementById('scoreChart');
+  if(sc)scoreChart=new Chart(sc,{type:'bar',data:{labels:bl,datasets:[{data:bc,backgroundColor:'#a5b4fc',borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{stepSize:1},beginAtZero:true}}}});
 }
-
-// ─── 문항 분석 ───
 function renderAnalysis(){
-  const n=students.length;
-  const hardEl=document.getElementById('hardList');
-  const allEl=document.getElementById('allList');
-
-  if(n===0){
-    hardEl.innerHTML='<div class="empty-msg">제출된 답안이 없습니다.</div>';
-    allEl.innerHTML=''; return;
-  }
-
-  // 문항별 정답률
-  const rates=[];
-  for(let i=0;i<NUM_Q;i++){
-    const cnt=students.filter(s=>s.correct&&s.correct[i]).length;
-    rates.push({q:i+1, rate:(cnt/n)*100, pts:pts[i]});
-  }
-
-  const valid=[...rates].filter(q=>answers[q.q-1]>0);
-
-  // 오답 TOP 10 (정답률 낮은 순)
-  const bottom10=valid.sort((a,b)=>a.rate-b.rate).slice(0,10);
-  if(bottom10.length===0){
-    hardEl.innerHTML='<div class="empty-msg">정답을 먼저 입력하세요.</div>';
-  } else {
-    hardEl.innerHTML=bottom10.map((q,i)=>qItemHTML(q,`TOP ${i+1}`,true)).join('');
-  }
-
-  // 전체 문항 (번호 순)
-  allEl.innerHTML=rates.map(q=>qItemHTML(q,'',q.rate<50)).join('');
+  const n=students.length,he=document.getElementById('hardList'),ae=document.getElementById('allList');
+  if(!n){he.innerHTML='<div class="empty-msg">제출된 답안이 없습니다.</div>';ae.innerHTML='';return;}
+  const rates=[];for(let i=0;i<NUM_Q;i++){const c=students.filter(s=>s.correct[i]).length;rates.push({q:i+1,rate:c/n*100,pts:R.pts[i]});}
+  const hard=[...rates].sort((a,b)=>a.rate-b.rate).filter(q=>q.rate<50);
+  he.innerHTML=hard.length?hard.map((q,r)=>qHTML(q,`TOP ${r+1}`,true)).join(''):'<div class="empty-msg" style="color:var(--success)">✅ 정답률 50% 미만 문항 없음</div>';
+  ae.innerHTML=rates.map(q=>qHTML(q,'',q.rate<50)).join('');
 }
-
-function qItemHTML(q, rank, isHard){
-  const col = q.rate<30?'#dc2626':q.rate<50?'#f59e0b':'#10b981';
-  return `<div class="q-item${isHard?' hard':''}" onclick="toggleQDetail(this,${q.q})" style="cursor:pointer;">
-    ${rank?`<div class="q-rank">${rank}</div>`:''}
-    <div class="q-num">${q.q}번</div>
-    <div class="bar-wrap">
-      <div class="bar-inner" style="width:${Math.max(q.rate,5)}%;background:${col};">
-        ${q.rate.toFixed(1)}%
-      </div>
-    </div>
-    <span class="chip ${isHard?'chip-red':'chip-green'}">${q.rate.toFixed(1)}%</span>
-    <span class="chip chip-gray">${q.pts}점</span>
-  </div>
-  <div class="q-detail" id="qd-${q.q}" style="display:none;"></div>`;
-}
-
-function toggleQDetail(el, qNum){
-  const detail = document.getElementById('qd-'+qNum);
-  if(!detail) return;
-  if(detail.style.display !== 'none'){
-    detail.style.display = 'none';
-    return;
-  }
-  const qi = qNum - 1;
-  const circleNum = n => ['①','②','③','④','⑤'][n-1]||'?';
-  const correct = answers[qi];
-
-  const wrong = students.filter(s => s.correct && !s.correct[qi]);
-  const right = students.filter(s => s.correct && s.correct[qi]);
-
-  const wrongHTML = wrong.length
-    ? wrong.map(s=>`<span class="chip chip-red" style="margin:2px;">${s.name} <span style="opacity:.7;">(${s.choices&&s.choices[qi]?circleNum(s.choices[qi]):'?'})</span></span>`).join('')
-    : '<span style="color:var(--success);font-size:12px;">없음 ✅</span>';
-
-  const rightHTML = right.length
-    ? right.map(s=>`<span class="chip chip-green" style="margin:2px;">${s.name}</span>`).join('')
-    : '<span style="color:var(--muted);font-size:12px;">없음</span>';
-
-  detail.innerHTML = `<div style="padding:10px 12px;background:#f8fafc;border-radius:0 0 8px 8px;border-top:1px solid var(--border);font-size:13px;">
-    <div style="margin-bottom:6px;"><strong style="color:#991b1b;">❌ 틀린 학생</strong> (선택한 답) &nbsp; <span style="font-size:11px;color:var(--muted);">정답: ${correct?circleNum(correct):'미입력'}</span></div>
-    <div style="margin-bottom:10px;">${wrongHTML}</div>
-    <div style="margin-bottom:4px;"><strong style="color:#065f46;">✅ 맞춘 학생</strong></div>
-    <div>${rightHTML}</div>
-  </div>`;
-  detail.style.display = 'block';
-}
-
-// ─── 학생 목록 ───
+function qHTML(q,rk,hard){const col=q.rate<30?'#dc2626':q.rate<50?'#f59e0b':'#10b981';
+  return `<div class="q-item${hard?' hard':''}">${rk?`<div class="q-rank">${rk}</div>`:''}<div class="q-num">${q.q}번</div><div class="bar-wrap"><div class="bar-inner" style="width:${Math.max(q.rate,5)}%;background:${col}">${q.rate.toFixed(0)}%</div></div><span class="chip chip-gray">${q.pts}점</span></div>`;}
 function renderStudents(){
-  const tbody=document.getElementById('stuBody');
-  if(students.length===0){
-    tbody.innerHTML='<tr><td colspan="5" class="empty-msg">제출된 답안이 없습니다.</td></tr>';
-    return;
-  }
-  const sorted=[...students].sort((a,b)=>b.total-a.total);
-  tbody.innerHTML=sorted.map(s=>`
-    <tr>
-      <td>${s.num}</td>
-      <td><strong>${s.name}</strong></td>
-      <td><strong>${s.total}점</strong></td>
-      <td><span class="grade-badge g${s.grade||9}">${s.grade||'?'}등급</span></td>
-      <td style="font-size:11px;color:var(--muted);">${s.ts}</td>
-    </tr>
-  `).join('');
+  const tb=document.getElementById('stuBody');
+  if(!students.length){tb.innerHTML='<tr><td colspan=5 class="empty-msg">제출된 답안이 없습니다.</td></tr>';return;}
+  tb.innerHTML=[...students].sort((a,b)=>b.total-a.total).map(s=>`<tr><td>${s.num}</td><td><b>${s.name}</b></td><td><b>${s.total}점</b></td><td><span class="grade-badge g${s.grade||9}">${s.grade||'?'}등급</span></td><td style="font-size:11px;color:var(--muted)">${s.ts}</td></tr>`).join('');
 }
-
-// ═══════════════════════════════════════
-// ─── 학생별 약점 분석 ───
-// ═══════════════════════════════════════
-let wdChart = null;
-
+// 현재 브랜드의 모든 회차를 각자 정답으로 채점 → 학생별 유형 누적
+let CUMU={};
+function buildCumulative(){
+  const brand=R.brand;
+  const brandRounds=ROUNDS.filter(r=>r.brand===brand);
+  const byLabel={};brandRounds.forEach(r=>byLabel[normLabel(r.sheetLabel)]=r);
+  const per={};
+  rawRows.forEach(row=>{
+    const lab=normLabel(row[3+NUM_Q]);if(!lab)return;
+    const rd=byLabel[lab];if(!rd)return;                 // 이 브랜드에 없는 회차 스킵
+    const name=(row[1]||'').trim();if(!name)return;
+    const choices=row.slice(3,3+NUM_Q).map(circledToInt);
+    const rec=per[name]||(per[name]={types:{},subs:[],scores:[]});
+    let sc=0;
+    for(let i=0;i<NUM_Q;i++){
+      const ty=normType(rd.types[i]);
+      const t=rec.types[ty]||(rec.types[ty]={c:0,n:0});
+      t.n++;const ok=rd.ans[i]>0&&choices[i]===rd.ans[i];if(ok){t.c++;sc+=rd.pts[i];}
+    }
+    rec.subs.push(rd.name);rec.scores.push(sc);
+  });
+  CUMU=per;return per;
+}
 function renderWeakness(){
-  if(students.length === 0){ return; }
-
-  // 이름별 그룹핑
-  const groups = {};
-  students.forEach(s => {
-    const key = s.name.trim();
-    if(!key) return;
-    if(!groups[key]) groups[key] = [];
-    groups[key].push(s);
-  });
-
-  const el = document.getElementById('wkStuList');
-  if(Object.keys(groups).length === 0){
-    el.innerHTML = '<div class="empty-msg">학생 데이터가 없습니다.</div>';
-    return;
-  }
-
-  el.innerHTML = Object.entries(groups).map(([name, subs]) => {
-    const avgScore = (subs.reduce((a,s)=>a+s.total,0)/subs.length).toFixed(1);
-    const weakCount = countWeakQuestions(subs);
-    const lastGrade = subs[subs.length-1].grade || '?';
-    return `<div class="stu-card" onclick="showWeakDetail('${name.replace(/'/g,"\\'")}')">
-      <div class="sn">${name}</div>
-      <div class="si">응시 ${subs.length}회 · 평균 ${avgScore}점</div>
-      <div class="sb">
-        <span class="chip chip-gray">최근 ${lastGrade}등급</span>
-        ${weakCount>0?`<span class="chip chip-red">약점 ${weakCount}문항</span>`:'<span class="chip chip-green">약점 없음</span>'}
-      </div>
-    </div>`;
+  const per=buildCumulative();
+  const brand=R.brand;
+  document.getElementById('wkScope').textContent=`${brand} 시리즈 전체 회차를 합산한 유형별 약점입니다. (지금 로드된 회차와 무관하게 각 응답을 해당 회차 정답으로 채점)`;
+  const el=document.getElementById('wkStuList');
+  const names=Object.keys(per);
+  if(!names.length){el.innerHTML='<div class="empty-msg">'+brand+' 응답이 없습니다. 폼 회차 라벨을 확인하세요.</div>';return;}
+  el.innerHTML=names.map(name=>{
+    const rec=per[name];const avg=(rec.scores.reduce((a,b)=>a+b,0)/rec.scores.length).toFixed(0);
+    // 최약 유형(듣기 제외, 문항 3개 이상)
+    let weak=null;
+    Object.entries(rec.types).forEach(([ty,t])=>{if(ty==='듣기'||t.n<3)return;const r=t.c/t.n;if(!weak||r<weak.r)weak={ty,r};});
+    const wtxt=weak?`${weak.ty} ${(weak.r*100).toFixed(0)}%`:'—';
+    return `<div class="stat-card" style="cursor:pointer;text-align:left" onclick="showWeakDetail('${name.replace(/'/g,"\\'")}')">
+      <div style="font-weight:800;font-size:15px">${name}</div>
+      <div class="sl" style="margin-top:4px">응시 ${rec.subs.length}회 · 평균 ${avg}점</div>
+      <div style="margin-top:6px"><span class="chip chip-red">최약 ${wtxt}</span></div></div>`;
   }).join('');
 }
-
-function countWeakQuestions(subs){
-  let cnt=0;
-  for(let i=0;i<NUM_Q;i++){
-    const wrong = subs.filter(s=>s.correct && !s.correct[i]).length;
-    if(wrong/subs.length >= 0.5) cnt++;
-  }
-  return cnt;
-}
-
 function showWeakDetail(name){
-  const subs = allStudents.filter(s=>s.name.trim()===name);
-  if(!subs.length) return;
-  _currentReportName = name;
-
-  document.getElementById('wk-list-view').style.display='none';
-  document.getElementById('wk-detail-view').style.display='block';
-
-  const n = subs.length;
-  const avgScore = (subs.reduce((a,s)=>a+s.total,0)/n).toFixed(1);
-  const bestScore = Math.max(...subs.map(s=>s.total));
-  const weakCount = countWeakQuestions(subs);
-
-  document.getElementById('wdName').textContent = '📌 ' + name;
-  document.getElementById('wdTotal').textContent = n + '회';
-  document.getElementById('wdAvg').textContent = avgScore + '점';
-  document.getElementById('wdBest').textContent = bestScore + '점';
-  document.getElementById('wdWeak').textContent = weakCount + '문항';
-
-  // 히트맵
-  const heatmap = document.getElementById('wdHeatmap');
-  heatmap.innerHTML = '';
-  for(let i=0;i<NUM_Q;i++){
-    const wrongCnt = subs.filter(s=>s.correct && !s.correct[i]).length;
-    const wrongRate = wrongCnt/n;
-    let bg, color;
-    if(answers[i] === 0){ bg='#f1f5f9'; color='#94a3b8'; }
-    else if(wrongRate >= 0.7){ bg='#dc2626'; color='#fff'; }
-    else if(wrongRate >= 0.5){ bg='#f97316'; color='#fff'; }
-    else if(wrongRate >= 0.3){ bg='#fbbf24'; color='#78350f'; }
-    else { bg='#d1fae5'; color='#065f46'; }
-    heatmap.innerHTML += `<div class="wq-cell" style="background:${bg};color:${color};" title="${i+1}번: 오답률 ${(wrongRate*100).toFixed(0)}%">${i+1}</div>`;
-  }
-
-  // 자주 틀리는 문항 목록
-  const weakList = document.getElementById('wdWeakList');
-  const weakQs = [];
-  for(let i=0;i<NUM_Q;i++){
-    if(answers[i]===0) continue;
-    const wrongCnt = subs.filter(s=>s.correct && !s.correct[i]).length;
-    const wrongRate = wrongCnt/n;
-    if(wrongRate >= 0.5) weakQs.push({q:i+1, wrongRate, wrongCnt, pts:pts[i]});
-  }
-  weakQs.sort((a,b)=>b.wrongRate-a.wrongRate);
-
-  if(weakQs.length === 0){
-    weakList.innerHTML = '<div class="empty-msg" style="color:var(--success);">✅ 오답률 50% 이상인 문항이 없습니다!</div>';
-  } else {
-    weakList.innerHTML = weakQs.map((q,idx) => `
-      <div class="q-item hard">
-        <div class="q-rank">TOP ${idx+1}</div>
-        <div class="q-num">${q.q}번</div>
-        <div class="bar-wrap">
-          <div class="bar-inner" style="width:${Math.max(q.wrongRate*100,5)}%;background:${q.wrongRate>=0.7?'#dc2626':'#f97316'};">
-            오답 ${(q.wrongRate*100).toFixed(0)}%
-          </div>
-        </div>
-        <span class="chip chip-red">${q.wrongCnt}/${n}회 틀림</span>
-        <span class="chip chip-gray">${q.pts}점</span>
-      </div>
-    `).join('');
-  }
-
-  // 답안 비교 (최근 제출)
-  const lastSub = subs[subs.length - 1];
-  const circleNum = n => ['①','②','③','④','⑤'][n-1] || '—';
-  document.getElementById('wdCompareLabel').textContent =
-    subs.length > 1 ? `(최근 ${subs.length}차 제출 기준)` : '';
-  document.getElementById('wdAnswerCompare').innerHTML =
-    Array.from({length: NUM_Q}, (_, i) => {
-      const correct = answers[i];
-      const chosen  = (lastSub.choices && lastSub.choices[i]) || 0;
-      const noAns   = correct === 0;
-      const ok      = !noAns && chosen === correct;
-      const bg      = noAns ? '#f8fafc' : ok ? '#d1fae5' : '#fee2e2';
-      const txtCol  = noAns ? '#334155' : ok ? '#065f46' : '#991b1b';
-      return `<div style="background:${bg};border-radius:8px;padding:7px 4px;text-align:center;">
-        <div style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:2px;">${i+1}번</div>
-        <div style="font-size:15px;font-weight:700;color:${txtCol};">${chosen ? circleNum(chosen) : '—'}</div>
-        <div style="font-size:10px;color:#64748b;">정답 ${noAns ? '미입력' : circleNum(correct)}</div>
-      </div>`;
-    }).join('');
-
-  // 점수 이력
-  const history = document.getElementById('wdHistory');
-  history.innerHTML = subs.map((s,i) => `
-    <div class="sh-item">
-      <div class="sh-score ${s.grade<=3?'':''}"> ${s.total}점</div>
-      <div><span class="grade-badge g${s.grade||9}" style="font-size:11px;">${s.grade||'?'}등급</span></div>
-      <div class="sh-date">${s.ts.split(' ')[0]||'—'}</div>
-    </div>
-  `).join('');
-
-  // 점수 추이 차트
-  if(wdChart) wdChart.destroy();
-  const ctx = document.getElementById('wdScoreChart');
-  if(ctx && subs.length > 1){
-    wdChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: subs.map((s,i)=>`${i+1}차`),
-        datasets:[{
-          data: subs.map(s=>s.total),
-          borderColor:'#4f46e5', backgroundColor:'rgba(79,70,229,.1)',
-          tension:.3, fill:true, pointRadius:5, pointBackgroundColor:'#4f46e5'
-        }]
-      },
-      options:{
-        responsive:true, maintainAspectRatio:false,
-        plugins:{legend:{display:false}},
-        scales:{y:{beginAtZero:false}}
-      }
-    });
-  } else if(ctx){
-    ctx.parentElement.style.display='none';
-  }
-}
-
-function showWeakList(){
-  document.getElementById('wk-list-view').style.display='block';
-  document.getElementById('wk-detail-view').style.display='none';
-}
-
-// ─── PDF 리포트 생성 ───
-let _currentReportName = '';
-let _gasSaveTimer = null;
-
-function printStudentReport(){
-  if(!_currentReportName) return;
-  const name = _currentReportName;
-  const subs = allStudents.filter(s=>s.name.trim()===name);
-  if(!subs.length) return;
-
-  const circleNum = n => ['①','②','③','④','⑤'][n-1]||'—';
-  const lastSub = subs[subs.length-1];
-  const avgScore = (subs.reduce((a,s)=>a+s.total,0)/subs.length).toFixed(1);
-  const bestScore = Math.max(...subs.map(s=>s.total));
-  const totalPts = pts.reduce((a,b)=>a+b,0);
-
-  // 회차별 점수 테이블
-  const histRows = subs.map((s,i)=>`
-    <tr>
-      <td>${s.round||`${i+1}차`}</td>
-      <td><strong>${s.total}점</strong> / ${totalPts}점</td>
-      <td><span style="background:${['#7c3aed','#2563eb','#0891b2','#059669','#65a30d','#ca8a04','#ea580c','#dc2626','#9f1239'][(s.grade||9)-1]};color:#fff;padding:2px 8px;border-radius:12px;font-size:12px;">${s.grade||'?'}등급</span></td>
-      <td style="font-size:11px;color:#666;">${s.ts.split(' ')[0]||''}</td>
-    </tr>`).join('');
-
-  // 오답 문항
-  const weakQs=[];
-  for(let i=0;i<NUM_Q;i++){
-    if(answers[i]===0) continue;
-    const wrongCnt=subs.filter(s=>s.correct&&!s.correct[i]).length;
-    if(wrongCnt>0) weakQs.push({q:i+1,wrongCnt,n:subs.length,pts:pts[i],correct:answers[i],chosen:lastSub.choices?.[i]||0});
-  }
-  weakQs.sort((a,b)=>b.wrongCnt-a.wrongCnt);
-
-  // 45문항 답안 비교 (최근 제출 기준)
-  const ansGrid = Array.from({length:NUM_Q},(_,i)=>{
-    const correct=answers[i]; const chosen=(lastSub.choices&&lastSub.choices[i])||0;
-    const noAns=correct===0; const ok=!noAns&&chosen===correct;
-    const bg=noAns?'#f8fafc':ok?'#d1fae5':'#fee2e2';
-    const tc=noAns?'#94a3b8':ok?'#065f46':'#991b1b';
-    return `<div style="background:${bg};border-radius:6px;padding:6px 2px;text-align:center;">
-      <div style="font-size:9px;color:#666;margin-bottom:1px;">${i+1}번</div>
-      <div style="font-size:13px;font-weight:700;color:${tc};">${chosen?circleNum(chosen):'—'}</div>
-      <div style="font-size:9px;color:#888;">정답 ${noAns?'—':circleNum(correct)}</div>
-    </div>`;
+  const rec=CUMU[name];if(!rec)return;
+  document.getElementById('wk-list-view').style.display='none';document.getElementById('wk-detail-view').style.display='block';
+  document.getElementById('wdName').textContent='📌 '+name;
+  const avg=(rec.scores.reduce((a,b)=>a+b,0)/rec.scores.length).toFixed(0);
+  document.getElementById('wdInfo').textContent=`${R.brand} 시리즈 ${rec.subs.length}회 응시(${rec.subs.join(', ')}) · 평균 ${avg}점 · 유형별 누적 정답률(낮은 순)`;
+  const arr=Object.entries(rec.types).map(([ty,t])=>({ty,r:t.c/t.n,c:t.c,n:t.n})).sort((a,b)=>a.r-b.r);
+  document.getElementById('wdTypeList').innerHTML=arr.map(x=>{
+    const p=Math.round(x.r*100);const col=p<50?'#dc2626':p<70?'#f59e0b':'#10b981';
+    return `<div class="q-item${p<50?' hard':''}"><div class="q-num" style="width:120px">${x.ty}</div><div class="bar-wrap"><div class="bar-inner" style="width:${Math.max(p,6)}%;background:${col}">${p}%</div></div><span class="chip chip-gray">${x.c}/${x.n}문항</span></div>`;
   }).join('');
-
-  const html = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
-  <title>${name} 성적 리포트</title>
-  <style>
-    body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;margin:0;padding:24px;color:#1e293b;font-size:13px;}
-    h1{font-size:20px;margin:0 0 4px;} .sub{color:#64748b;font-size:12px;margin-bottom:20px;}
-    table{width:100%;border-collapse:collapse;margin-bottom:16px;}
-    th{background:#f1f5f9;padding:8px 10px;text-align:left;font-size:12px;color:#475569;}
-    td{padding:8px 10px;border-bottom:1px solid #e2e8f0;}
-    h3{font-size:14px;margin:20px 0 8px;color:#334155;}
-    .ans-grid{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;margin-bottom:16px;}
-    .stat{display:inline-block;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 16px;margin:0 8px 8px 0;text-align:center;}
-    .stat .v{font-size:18px;font-weight:700;color:#4f46e5;} .stat .l{font-size:11px;color:#64748b;margin-top:2px;}
-    .weak-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f1f5f9;}
-    @media print{body{padding:12px;} button{display:none;}}
-  </style></head><body>
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-    <div>
-      <h1>📊 ${name} 성적 리포트</h1>
-      <div class="sub">시험명: ${examName||'모의고사'} &nbsp;|&nbsp; 생성: ${new Date().toLocaleDateString('ko-KR')}</div>
-    </div>
-    <button onclick="window.print()" style="padding:8px 16px;background:#4f46e5;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;">🖨 인쇄 / PDF 저장</button>
-  </div>
-
-  <div style="margin-bottom:16px;">
-    <div class="stat"><div class="v">${subs.length}회</div><div class="l">총 응시</div></div>
-    <div class="stat"><div class="v">${avgScore}점</div><div class="l">평균 점수</div></div>
-    <div class="stat"><div class="v">${bestScore}점</div><div class="l">최고 점수</div></div>
-    <div class="stat"><div class="v">${weakQs.length}문항</div><div class="l">오답 문항 수</div></div>
-  </div>
-
-  <h3>📅 회차별 점수</h3>
-  <table><thead><tr><th>회차</th><th>점수</th><th>등급</th><th>제출일</th></tr></thead>
-  <tbody>${histRows}</tbody></table>
-
-  <h3>⚠️ 오답 문항 (최근 제출 기준)</h3>
-  ${weakQs.length===0?'<p style="color:#059669;">✅ 오답 문항 없음</p>':
-    weakQs.slice(0,20).map(q=>`<div class="weak-row">
-      <span style="font-weight:700;width:40px;">${q.q}번</span>
-      <span style="color:#dc2626;">선택: ${circleNum(q.chosen)}</span>
-      <span style="color:#059669;">정답: ${circleNum(q.correct)}</span>
-      <span style="color:#64748b;font-size:11px;">${q.pts}점 | ${q.wrongCnt}/${q.n}회 오답</span>
-    </div>`).join('')}
-
-  <h3>📋 45문항 답안 비교 (최근 제출)</h3>
-  <div class="ans-grid">${ansGrid}</div>
-  <p style="font-size:11px;color:#94a3b8;">🟢 정답 &nbsp; 🔴 오답 &nbsp; ⬜ 정답 미입력</p>
-  </body></html>`;
-
-  const w = window.open('','_blank','width=860,height=900');
-  w.document.write(html);
-  w.document.close();
 }
-
-
-// ═══════════════════════════════════════
-// ─── Excel 업로드 & 파싱 ───
-// ═══════════════════════════════════════
-function handleXlsxDrop(e){
-  e.preventDefault();
-  document.getElementById('uploadZone').classList.remove('drag');
-  const file = e.dataTransfer.files[0];
-  if(file) handleXlsxFile(file);
-}
-
-function handleXlsxFile(file){
-  if(!file){ return; }
-  const st = document.getElementById('uploadStatus');
-  st.textContent = '⏳ 파일 읽는 중...'; st.className='upload-status';
-  const reader = new FileReader();
-  reader.onload = function(e){
-    try{
-      const wb = XLSX.read(e.target.result, {type:'array'});
-      const ws = wb.Sheets['문항설정'] || wb.Sheets[wb.SheetNames[0]];
-      if(!ws) throw new Error('문항설정 시트를 찾을 수 없습니다.');
-      parseXlsxSheet(ws);
-      st.textContent = '✅ 엑셀 파일이 성공적으로 로드됐습니다!';
-      st.className = 'upload-status ok';
-      showToast('엑셀 파일 로드 완료! 정답·배점·예측 비율이 입력됐습니다.');
-      // UI 갱신
-      loadCfg(); buildGrid(); loadCfg(); updTotPts();
-      // 예측 탭도 갱신
-      hasPredData = true;
-      renderPrediction(predFilter);
-    } catch(err){
-      st.textContent = '❌ 오류: ' + err.message;
-      st.className = 'upload-status err';
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function parseXlsxSheet(ws){
-  // 컬럼: A=번호, B=정답, C=배점, D=유형, E=난이도, F~J=①~⑤예측%, K=합계(skip), L=평가원참조, M=오답태그, N=메모
-  const range = XLSX.utils.decode_range(ws['!ref']||'A1');
-  predDist  = Array.from({length:NUM_Q},()=>new Array(5).fill(0));
-  qTypes    = new Array(NUM_Q).fill('');
-  qDiffs    = new Array(NUM_Q).fill('');
-  qTags     = new Array(NUM_Q).fill('');
-  qNotes    = new Array(NUM_Q).fill('');
-
-  for(let row=1; row<=range.e.r; row++){
-    const getCel = col => {
-      const addr = XLSX.utils.encode_cell({r:row,c:col});
-      const cell = ws[addr];
-      return cell ? (cell.v ?? '') : '';
-    };
-    const numRaw = getCel(0); // A열: 번호
-    const qNum = parseInt(numRaw);
-    if(!qNum || qNum<1 || qNum>NUM_Q) continue;
-    const qi = qNum-1;
-
-    const ans  = parseInt(getCel(1)) || 0;  // B: 정답
-    const pts_ = parseInt(getCel(2)) || 2;  // C: 배점
-    const type_= String(getCel(3)||'');      // D: 유형
-    const diff_= String(getCel(4)||'');      // E: 난이도
-    const p1   = parseFloat(getCel(5))||0;  // F: ① 예측%
-    const p2   = parseFloat(getCel(6))||0;  // G: ② 예측%
-    const p3   = parseFloat(getCel(7))||0;  // H: ③ 예측%
-    const p4   = parseFloat(getCel(8))||0;  // I: ④ 예측%
-    const p5   = parseFloat(getCel(9))||0;  // J: ⑤ 예측%
-    // K(10) = 합계 skip
-    const note_= String(getCel(11)||'');    // L: 평가원참조
-    const tag_ = String(getCel(12)||'');    // M: 오답유형태그
-    const memo_= String(getCel(13)||'');    // N: 메모
-
-    answers[qi] = ans;
-    pts[qi]     = pts_;
-    predDist[qi]= [p1,p2,p3,p4,p5];
-    qTypes[qi]  = type_;
-    qDiffs[qi]  = diff_;
-    qNotes[qi]  = note_ + (memo_ ? ' · '+memo_ : '');
-    qTags[qi]   = tag_;
-
-  }
-  // localStorage 저장 + 재채점
-  try{
-    localStorage.setItem('exam_a', JSON.stringify(answers));
-    localStorage.setItem('exam_p', JSON.stringify(pts));
-  }catch(e){}
-  recalcStudents();
-}
-
-// ═══════════════════════════════════════
-// ─── 선지 예측 분析 ───
-// ═══════════════════════════════════════
-function renderPrediction(filter){
-  predFilter = filter||'all';
-  const noData = document.getElementById('predNoData');
-  const sumArea = document.getElementById('predSummaryArea');
-
-  const noSetup = !hasPredData && predDist.every(d=>d.every(v=>v===0));
-  const noStudents = students.length===0;
-
-  if(noSetup){
-    noData.style.display='';
-    noData.innerHTML='⚠️ <strong>[시험 설정]</strong> 탭에서 엑셀 파일을 업로드해야 선지 예측 분析을 볼 수 있습니다.';
-    sumArea.style.display='none';
-    return;
-  }
-  noData.style.display='none';
-  sumArea.style.display='';
-
-  // 실제 선지 분포 계산
-  // actualDist[i][j] = i번 문항에서 j번 선지 선택 학생 수
-  const n = students.length;
-  const actualDist = Array.from({length:NUM_Q},()=>new Array(5).fill(0));
-  if(n>0){
-    students.forEach(s=>{
-      if(!s.choices) return;
-      for(let i=0;i<NUM_Q;i++){
-        const ch = s.choices[i];
-        if(ch>=1&&ch<=5) actualDist[i][ch-1]++;
-      }
-    });
-  }
-
-  // 요약 통계
-  let totalQ=0, matched=0, partMatch=0;
+function showWeakList(){document.getElementById('wk-list-view').style.display='block';document.getElementById('wk-detail-view').style.display='none';}
+function matchScore(pred,act){let s=0;for(let j=0;j<5;j++)s+=Math.max(0,1-Math.abs(pred[j]-act[j])/100);return s/5*100;}
+function renderPrediction(){
+  const n=students.length;const act=Array.from({length:NUM_Q},()=>new Array(5).fill(0));
+  students.forEach(s=>{for(let i=0;i<NUM_Q;i++){const c=s.choices[i];if(c>=1&&c<=5)act[i][c-1]++;}});
+  let html='';
   for(let i=0;i<NUM_Q;i++){
-    if(answers[i]===0) continue;
-    totalQ++;
-    if(n===0) continue;
-    const score = matchScore(predDist[i], actualDist[i].map(v=>n>0?v/n*100:0));
-    if(score>=80) matched++;
-    else if(score>=50) partMatch++;
+    const aR=act[i].map(v=>n?v/n*100:0);const sc=n?matchScore(R.pred[i],aR):-1;
+    let badge='';if(sc>=0){const cl=sc>=80?'match-good':sc>=50?'match-ok':'match-miss';const lb=sc>=80?'✓ 일치':sc>=50?'△ 부분':'✗ 빗나감';badge=`<span class="match-badge ${cl}">${lb}</span>`;}
+    const mx=Math.max(...R.pred[i],...aR,1);let rows='';
+    for(let j=0;j<5;j++){const ans=(j+1===R.ans[i]);
+      rows+=`<div class="choice-row"><span class="ch-lbl${ans?' ans':''}">${CIRC[j+1]}</span><div class="ch-bars"><div class="ch-bar-p" style="width:${Math.round(R.pred[i][j]/mx*100)}%"></div>${n?`<div class="ch-bar-a" style="width:${Math.round(aR[j]/mx*100)}%"></div>`:''}</div><div class="ch-pcts"><span class="pp">${R.pred[i][j].toFixed(0)}</span>${n?`<span class="ap">${aR[j].toFixed(0)}</span>`:''}</div></div>`;}
+    const cr=n?students.filter(s=>s.correct[i]).length/n*100:0;
+    html+=`<div class="pred-card"><div class="pc-head"><span class="pc-num">${i+1}번</span><span class="pc-ans">${CIRC[R.ans[i]]}</span><span class="pc-pts">${R.pts[i]}점</span>${badge}</div>${n?`<div style="font-size:10px;color:var(--muted);margin-bottom:4px">정답률 ${cr.toFixed(0)}%</div>`:''}${rows}${R.tags[i]?`<div style="font-size:10px;color:var(--muted);margin-top:6px">🏷 ${R.tags[i]}</div>`:''}</div>`;
   }
-
-  document.getElementById('predSumGrid').innerHTML = `
-    <div class="pred-sum-card"><div class="psv">${totalQ}</div><div class="psl">설정된 문항수</div></div>
-    <div class="pred-sum-card"><div class="psv">${n}명</div><div class="psl">제출 학생</div></div>
-    <div class="pred-sum-card"><div class="psv" style="color:var(--success);">${matched}</div><div class="psl">예측 일치 문항 (80%+)</div></div>
-    <div class="pred-sum-card"><div class="psv" style="color:var(--warning);">${partMatch}</div><div class="psl">부분 일치 문항</div></div>
-    <div class="pred-sum-card"><div class="psv" style="color:var(--danger);">${totalQ-matched-partMatch}</div><div class="psl">예측 빗나간 문항</div></div>
-  `;
-
-  // 필터 버튼 스타일
-  ['predFilterAll','predFilterHard','predFilterMatch','predFilterMiss'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el) el.style.borderColor=el.id==='predFilter'+predFilter.charAt(0).toUpperCase()+predFilter.slice(1)?'var(--primary)':'var(--border)';
-  });
-
-  // 문항 카드 렌더
-  const grid = document.getElementById('predGrid');
-  let cards = '';
-  for(let i=0;i<NUM_Q;i++){
-    if(answers[i]===0) continue;
-    const aReal = actualDist[i].map(v=>n>0?(v/n*100):0);
-    const score = n>0 ? matchScore(predDist[i], aReal) : -1;
-
-    // 필터
-    const correctRate = n>0 ? (students.filter(s=>s.correct&&s.correct[i]).length/n*100) : 100;
-    if(filter==='hard'  && correctRate>=50) continue;
-    if(filter==='match' && (score<0||score<80)) continue;
-    if(filter==='miss'  && (score<0||score>=50)) continue;
-
-    let matchBadge='';
-    if(score>=0){
-      const cls = score>=80?'match-good':score>=50?'match-ok':'match-miss';
-      const lbl = score>=80?'✓ 일치':score>=50?'△ 부분':'✗ 빗나감';
-      matchBadge=`<span class="match-badge ${cls}">${lbl}</span>`;
-    } else {
-      matchBadge=`<span class="match-badge match-ok" style="background:#f1f5f9;color:var(--muted);">답안 없음</span>`;
-    }
-
-    const CHOICES=['①','②','③','④','⑤'];
-    let rows='';
-    const maxPred = Math.max(...predDist[i], 1);
-    const maxReal = Math.max(...aReal, 1);
-    const maxAll  = Math.max(maxPred, maxReal, 1);
-
-    for(let j=0;j<5;j++){
-      const isAns = (j+1===answers[i]);
-      const pp = predDist[i][j];
-      const ap = n>0 ? aReal[j] : 0;
-      const pW = Math.round(pp/maxAll*100);
-      const aW = n>0 ? Math.round(ap/maxAll*100) : 0;
-      rows+=`<div class="choice-row">
-        <span class="ch-lbl${isAns?' ans':''}">${CHOICES[j]}</span>
-        <div class="ch-bars">
-          <div class="ch-bar-p" style="width:${pW}%"></div>
-          ${n>0?`<div class="ch-bar-a" style="width:${aW}%"></div>`:''}
-        </div>
-        <div class="ch-pcts">
-          <span class="pp">${pp.toFixed(0)}%</span>
-          ${n>0?`<span class="ap">${ap.toFixed(0)}%</span>`:'<span class="ap" style="color:var(--muted);">—</span>'}
-        </div>
-      </div>`;
-    }
-
-    const typeTag = qTypes[i]?`<span class="chip chip-gray" style="font-size:10px;">${qTypes[i]}</span>`:'';
-    const diffTag = qDiffs[i]?`<span class="chip chip-${qDiffs[i]==='상'?'red':qDiffs[i]==='하'?'green':'gray'}" style="font-size:10px;">${qDiffs[i]}</span>`:'';
-    const tagNote = qTags[i]?`<div style="font-size:10px;color:var(--muted);margin-top:6px;">🏷 ${qTags[i]}</div>`:'';
-    const crStr = n>0 ? `<span style="font-size:10px;color:var(--muted);">정답률 ${correctRate.toFixed(0)}%</span>`:'';
-
-    cards+=`<div class="pred-card">
-      <div class="pc-head">
-        <span class="pc-num">${i+1}번</span>
-        <span class="pc-ans">${CHOICES[answers[i]-1]||'?'}</span>
-        <span class="pc-pts">${pts[i]}점</span>
-        ${typeTag}${diffTag}
-        ${matchBadge}
-      </div>
-      ${crStr}
-      ${rows}
-      ${tagNote}
-    </div>`;
-  }
-  grid.innerHTML = cards || '<div class="pred-empty">표시할 문항이 없습니다.</div>';
+  document.getElementById('predGrid').innerHTML=html;
 }
-
-function matchScore(pred, actual){
-  // 예측과 실제 분포의 유사도 점수 (0~100)
-  // Σ(1 - |pred-actual|/100) × 20 / N
-  let sum=0;
-  for(let j=0;j<5;j++){
-    sum += Math.max(0, 1 - Math.abs(pred[j]-actual[j])/100);
-  }
-  return (sum/5)*100;
-}
-
-
-// ═══════════════════════════════════════
-// ─── 빠른 입력 ───
-// ═══════════════════════════════════════
-// 원문자 변형 모두 지원
-function parseQuickAns(raw){
-  let s = raw;
-  // ① 스타일 (U+2460~)
-  const circles1 = ['①','②','③','④','⑤'];
-  // ❶ 스타일 (U+2776~)
-  const circles2 = ['❶','❷','❸','❹','❺'];
-  // ➀ 스타일 (U+2780~)
-  const circles3 = ['➀','➁','➂','➃','➄'];
-  // ⑴ 스타일 (U+2474~)
-  const circles4 = ['⑴','⑵','⑶','⑷','⑸'];
-  [circles1,circles2,circles3,circles4].forEach(arr=>{
-    arr.forEach((ch,idx)=>{ s = s.split(ch).join(String(idx+1)); });
-  });
-  // 한글 숫자 "일이삼사오" → skip (너무 복잡)
-  // 숫자 앞 점/괄호 제거: "1." "1)" "(1)" → "1"
-  s = s.replace(/[(]([1-5])[)]/g,'$1').replace(/([1-5])[.)]/g,'$1');
-  // 연속된 숫자에서 각 자리가 1~5인 것만 추출
-  const tokens = s.match(/[1-5]/g) || [];
-  return tokens.map(Number);
-}
-
-function previewQuick(){
-  const raw = document.getElementById('quickAns').value;
-  const parsed = parseQuickAns(raw);
-  const preview = document.getElementById('quickPreview');
-  const grid = document.getElementById('qpGrid');
-  const cnt = document.getElementById('qpCount');
-
-  if(parsed.length === 0){ preview.style.display='none'; return; }
-  preview.style.display='';
-  cnt.textContent = parsed.length;
-
-  const CIRC = ['','①','②','③','④','⑤'];
-  const statusColor = parsed.length >= NUM_Q ? 'var(--success)' : 'var(--warning)';
-  const statusMsg = parsed.length >= NUM_Q
-    ? `✅ ${NUM_Q}개 정상 인식`
-    : `⚠️ ${parsed.length}개 인식됨 (${NUM_Q}개 필요)`;
-
-  grid.innerHTML =
-    `<div style="width:100%;font-size:12px;font-weight:700;color:${statusColor};margin-bottom:8px;">${statusMsg}</div>` +
-    parsed.slice(0, NUM_Q).map((v,i) => {
-      const col = v>0 ? 'var(--primary)' : 'var(--muted)';
-      const bg  = v>0 ? 'var(--primary-light)' : '#f8fafc';
-      return `<div style="width:44px;text-align:center;padding:4px 2px;border-radius:6px;background:${bg};font-size:12px;">
-        <div style="font-size:10px;color:var(--muted);">${i+1}번</div>
-        <div style="font-weight:700;color:${col};">${CIRC[v]||'—'}</div>
-      </div>`;
-    }).join('');
-}
-
-function setQuick3pt(val){
-  document.getElementById('quick3pt').value = val;
-  showToast('3점 문항 번호 10개를 직접 입력해주세요 (시험마다 달라요)');
-}
-
-// ─── 회차 필터 렌더링 ───
-function renderRoundFilter(){
-  const wrap = document.getElementById('roundFilterWrap');
-  const btnWrap = document.getElementById('roundBtns');
-  if(!availableRounds.length){ wrap.style.display='none'; return; }
-  wrap.style.display='block';
-  const rounds = ['전체', ...availableRounds];
-  btnWrap.innerHTML = rounds.map(r=>`
-    <button class="btn ${r===selectedRound?'btn-primary':'btn-outline'}"
-      style="font-size:12px;padding:5px 12px;"
-      onclick="filterByRound('${r}')">${r}</button>
-  `).join('');
-}
-
-function filterByRound(round){
-  selectedRound = round;
-  students = round==='전체' ? [...allStudents] : allStudents.filter(s=>s.round===round);
-  // 필터된 그룹 내 등급 재계산
-  const sorted=[...students].sort((a,b)=>b.total-a.total);
-  const n=sorted.length;
-  let i=0;
-  while(i<n){
-    let j=i;
-    while(j<n-1&&sorted[j+1].total===sorted[i].total) j++;
-    const pct=((j+1)/n)*100;
-    const grade=getGrade(pct);
-    for(let k=i;k<=j;k++) sorted[k].grade=grade;
-    i=j+1;
-  }
-  renderRoundFilter();
-  renderAll();
-}
-
-// ─── 학생 재채점 (정답/배점 변경 후 호출) ───
-function recalcStudents(){
-  if(!allStudents.length) return;
-  allStudents.forEach(s => {
-    const {total, correct} = scoreRow(s.choices);
-    s.total = total;
-    s.correct = correct;
-  });
-  // 필터 재적용
-  students = selectedRound==='전체' ? [...allStudents] : allStudents.filter(s=>s.round===selectedRound);
-  const sorted = [...students].sort((a,b)=>b.total-a.total);
-  const n = sorted.length;
-  let i = 0;
-  while(i < n){
-    let j = i;
-    while(j < n-1 && sorted[j+1].total === sorted[i].total) j++;
-    const pct = ((j+1)/n)*100;
-    const grade = getGrade(pct);
-    for(let k=i;k<=j;k++) sorted[k].grade = grade;
-    i = j+1;
-  }
-  renderAll();
-}
-
-function applyQuickInput(){
-  const raw = document.getElementById('quickAns').value.trim();
-  const res = document.getElementById('quickResult');
-  const ta  = document.getElementById('quickAns');
-
-  if(!raw){
-    res.innerHTML = '<div style="background:#fee2e2;color:#991b1b;padding:10px;border-radius:8px;font-size:13px;font-weight:600;">❌ 정답을 먼저 붙여넣어 주세요!</div>';
-    showToast('❌ 정답 칸이 비어있어요!');
-    ta.focus();
-    return;
-  }
-
-  const parsed = parseQuickAns(raw);
-
-  if(parsed.length < 40){
-    // 너무 적으면 에러
-    ta.style.borderColor = 'var(--danger)';
-    res.innerHTML = `<div style="background:#fee2e2;color:#991b1b;padding:10px;border-radius:8px;font-size:13px;font-weight:600;">❌ ${parsed.length}개만 인식됐어요 — 최소 40개가 필요합니다.<br>숫자 사이 공백이 없어도 OK, ①②③ 형식도 OK.</div>`;
-    showToast('❌ ' + parsed.length + '개 인식 — 부족해요');
-    ta.scrollIntoView({behavior:'smooth', block:'center'});
-    return;
-  }
-
-  ta.style.borderColor = '';
-
-  // 45개 미만이면 경고는 하되 적용 (부족한 문항은 0)
-  const toApply = parsed.slice(0, NUM_Q);
-  while(toApply.length < NUM_Q) toApply.push(0);
-
-  const shortMsg = parsed.length < NUM_Q
-    ? `<br><span style="color:#92400e;">⚠ ${parsed.length}개만 입력됨 — ${NUM_Q-parsed.length}개 문항은 수동으로 확인하세요</span>`
-    : '';
-
-  // 정답 적용
-  for(let i=0;i<NUM_Q;i++) answers[i] = toApply[i];
-
-  // 배점 적용
-  const raw3 = document.getElementById('quick3pt').value;
-  const q3 = raw3.split(/[,\s]+/).map(s=>parseInt(s.trim())).filter(n=>n>=1&&n<=NUM_Q);
-  pts = new Array(NUM_Q).fill(2);
-  q3.forEach(n => pts[n-1] = 3);
-
-  // ① 배점 SELECT 전부 먼저 세팅
-  for(let i=0;i<NUM_Q;i++){
-    const pe = document.getElementById('p'+i);
-    if(pe) pe.value = String(pts[i]);
-  }
-  // ② 정답 SELECT 전부 세팅 (saveCfg 아직 안 부름)
-  for(let i=0;i<NUM_Q;i++){
-    const ae = document.getElementById('a'+i);
-    if(ae) ae.value = String(answers[i]);
-  }
-  // ③ 스타일만 업데이트 후 saveCfg 1회 (DOM이 완성된 상태)
-  for(let i=0;i<NUM_Q;i++){
-    const ae = document.getElementById('a'+i);
-    if(ae){
-      ae.style.borderColor = answers[i]>0 ? 'var(--primary)' : 'var(--border)';
-      ae.style.background  = answers[i]>0 ? 'var(--primary-light)' : '';
-    }
-  }
-  saveCfg();
-  recalcStudents();
-
-  const totPts = pts.reduce((a,b)=>a+b,0);
-  const msg = `✅ ${toApply.filter(v=>v>0).length}개 정답 적용! 총점 ${totPts}점 (3점 ${q3.length}개)`;
-  res.innerHTML = `<div style="background:#d1fae5;color:#065f46;padding:10px;border-radius:8px;font-size:13px;font-weight:600;">${msg}${shortMsg}</div>`;
-  showToast(msg);
-
-  setTimeout(()=>document.getElementById('ansGrid').scrollIntoView({behavior:'smooth',block:'start'}), 400);
-}
-
-
-// ─── 자동 갱신 ───
-function toggleAuto(){
-  const btn=document.getElementById('autoBtn');
-  if(autoTimer){
-    clearInterval(autoTimer); autoTimer=null;
-    btn.textContent='▶ 자동갱신 시작'; btn.className='btn btn-primary';
-  } else {
-    loadSheet();
-    autoTimer=setInterval(loadSheet,30000);
-    btn.textContent='⏹ 자동갱신 중 (30초)'; btn.className='btn btn-success';
-  }
-}
-</script>
-</body>
-</html>
+function toggleAuto(){const b=document.getElementById('autoBtn');
+  if(autoTimer){clearInterval(autoTimer);autoTimer=null;b.textContent='▶ 자동갱신';b.className='btn btn-primary';}
+  else{loadSheet();autoTimer=setInterval(loadSheet,30000);b.textContent='⏹ 자동갱신중';b.className='btn btn-outline';}}
+</script></body></html>
