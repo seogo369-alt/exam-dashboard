@@ -1,77 +1,100 @@
 <!DOCTYPE html>
 <script type="application/json" id="cowork-artifact-meta">
-{"name":"통합 채점 대시보드","schemaVersion":1,"description":"회차 선택형 모의고사 채점 대시보드 — 6회차 정답 내장, 회차만 고르면 자동 채점(구글폼/QR 재사용, 정답 입력 불필요). 구글시트에서 회차별 응답만 필터링해 수능식 등급·문항분석·선지예측 제공.","mcpTools":["mcp__35772252-0cd3-40ad-ac13-a40a62adeb71__download_file_content"],"mcpServerNames":["Google Drive"]}
+{"name":"RE: EXAM — 모의고사 채점 대시보드","schemaVersion":1,"description":"RE: EXAM — 회차 선택형 모의고사 채점 대시보드. 8회차 정답 내장, 회차만 고르면 자동 채점(구글폼/QR 재사용, 정답 입력 불필요). 구글시트에서 회차별 응답만 필터링해 수능식 등급·문항분석·선지예측 제공.","mcpTools":["mcp__35772252-0cd3-40ad-ac13-a40a62adeb71__download_file_content"],"mcpServerNames":["Google Drive"]}
 </script>
 <html lang=ko><head><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1">
-<title>통합 채점 대시보드</title>
+<title>RE: EXAM</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
 <style>
-:root{color-scheme:light;--bg:#f0f4f8;--card:#fff;--primary:#4f46e5;--primary-light:#eef2ff;
---danger:#ef4444;--warning:#f59e0b;--success:#10b981;--text:#1e293b;--muted:#64748b;--border:#e2e8f0;--radius:12px}
+:root{color-scheme:light;
+--blue:#1B3A6B;--blue-light:#EAF0F8;--orange:#E8851E;--orange-light:#FDF1E3;
+--bg:#F7F8FA;--card:#fff;--primary:#1B3A6B;--primary-light:#EAF0F8;
+--danger:#C0392B;--warning:#E8851E;--text:#222;--muted:#888;--border:#e2e2e2;--radius:12px}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var(--bg);color:var(--text);font-size:14px}
-.tab-bar{display:flex;flex-wrap:wrap;background:var(--card);border-bottom:2px solid var(--border);padding:0 12px;gap:2px;position:sticky;top:0;z-index:10}
-.tab-btn{padding:13px 15px;cursor:pointer;border:none;background:none;font-size:14px;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px}
-.tab-btn.active{color:var(--primary);border-bottom-color:var(--primary)}
-.panel{display:none;padding:16px;max-width:1000px;margin:0 auto}.panel.active{display:block}.csub{font-weight:400;font-size:10px;color:var(--muted)}
-.card{background:var(--card);border-radius:var(--radius);padding:18px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
-.card h3{font-size:15px;font-weight:700;margin-bottom:14px}
-.btn{padding:9px 18px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:13px}
-.btn-primary{background:var(--primary);color:#fff}.btn-outline{background:#fff;border:1.5px solid var(--border);color:var(--text)}
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:14px}
-.stat-card{background:var(--card);border-radius:10px;padding:14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+body{font-family:'Malgun Gothic',-apple-system,sans-serif;background:var(--bg);color:#222;font-size:14px}
+header{background:#fff;border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:50}
+header .h-logo{font-size:17px;font-weight:700}
+header .h-logo .re{color:var(--orange)}header .h-logo .name{color:var(--blue)}
+header .h-user{font-size:13px;color:#555;display:flex;align-items:center;gap:12px}
+.role-chip{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:var(--blue-light);color:var(--blue)}
+.tab-bar{display:flex;gap:4px;background:#fff;padding:0 16px;border-bottom:1px solid var(--border);overflow-x:auto;position:sticky;top:56px;z-index:40}
+.tab-btn{padding:13px 16px;font-size:14px;cursor:pointer;border:none;background:none;color:#777;border-bottom:2px solid transparent;white-space:nowrap}
+.tab-btn.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+.panel{display:none;padding:20px;max-width:1000px;margin:0 auto}.panel.active{display:block}
+.csub{font-weight:400;font-size:10px;color:var(--muted)}
+.card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.card h3{font-size:15px;font-weight:700;margin-bottom:14px;color:#333}
+.btn{display:inline-block;padding:11px 20px;border:1px solid var(--border);border-radius:8px;background:#fff;color:#333;font-size:14px;cursor:pointer;transition:all .12s;white-space:nowrap}
+.btn:hover{background:#f3f3f3}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}.btn-primary:hover{opacity:.9;background:var(--blue)}
+.btn-accent{background:var(--orange);color:#fff;border-color:var(--orange)}
+.btn-outline{background:#fff;border:1px solid var(--border);color:#333}
+.btn-sm{padding:5px 11px;font-size:12px;border-radius:6px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:16px}
+.stat-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center}
 .stat-card .sv{font-size:24px;font-weight:800}.stat-card .sl{font-size:11px;color:var(--muted);margin-top:4px}
-.g1{background:#7c3aed;color:#fff}.g2{background:#2563eb;color:#fff}.g3{background:#0891b2;color:#fff}.g4{background:#059669;color:#fff}.g5{background:#65a30d;color:#fff}.g6{background:#ca8a04;color:#fff}.g7{background:#ea580c;color:#fff}.g8{background:#dc2626;color:#fff}.g9{background:#9f1239;color:#fff}
+.g1{background:#1B3A6B;color:#fff}.g2{background:#2E5B9A;color:#fff}.g3{background:#4A7EBB;color:#fff}.g4{background:#1B7A5A;color:#fff}.g5{background:#6B8E23;color:#fff}.g6{background:#C9A227;color:#fff}.g7{background:#E8851E;color:#fff}.g8{background:#C0392B;color:#fff}.g9{background:#8B1E1E;color:#fff}
 .grade-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:13px;font-weight:700}
-.q-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;margin-bottom:5px;background:#fff;border:1px solid var(--border)}
+.q-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;margin-bottom:6px;background:#fff;border:1px solid var(--border)}
 .q-item.hard{border-left:4px solid var(--danger)}.q-num{font-weight:700;width:40px;font-size:13px}.q-rank{font-size:11px;color:var(--muted);width:48px}
-.bar-wrap{flex:1;background:#f1f5f9;border-radius:4px;height:22px;overflow:hidden}
+.bar-wrap{flex:1;background:#f1f3f6;border-radius:4px;height:22px;overflow:hidden}
 .bar-inner{height:100%;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:700;border-radius:4px;min-width:30px}
 .chip{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
-.chip-red{background:#fee2e2;color:#991b1b}.chip-green{background:#d1fae5;color:#065f46}.chip-gray{background:#f1f5f9;color:var(--muted)}
+.chip-red{background:#FCEBEB;color:var(--danger)}.chip-green{background:var(--blue-light);color:var(--blue)}.chip-gray{background:#f1f3f6;color:var(--muted)}
 .stbl{width:100%;border-collapse:collapse;font-size:13px}
-.stbl th{background:#f8fafc;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);font-weight:700}
-.stbl td{padding:9px 12px;border-bottom:1px solid #f1f5f9}
-.vs-wrap{display:flex;align-items:center;gap:16px;padding:14px;background:#f8fafc;border-radius:10px}
+.stbl th{background:#f7f9fc;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);font-weight:700;color:#555}
+.stbl td{padding:9px 12px;border-bottom:1px solid #f1f3f6}
+.vs-wrap{display:flex;align-items:center;gap:16px;padding:14px;background:#f7f9fc;border:1px solid var(--border);border-radius:10px}
 .vs-side{flex:1;text-align:center}.vs-side .vv{font-size:32px;font-weight:800}.vs-side .vl{font-size:12px;color:var(--muted);margin-top:4px}.vs-mid{font-size:18px;color:var(--muted);font-weight:700}
 .alert{padding:12px 16px;border-radius:8px;margin-bottom:12px;font-size:13px}
-.alert-warn{background:#fef3c7;border:1px solid #fcd34d;color:#78350f}.alert-info{background:#dbeafe;border:1px solid #93c5fd;color:#1e3a8a}.alert-success{background:#d1fae5;border:1px solid #6ee7b7;color:#064e3b}
+.alert-warn{background:var(--orange-light);border:1px solid #f3c795;color:#8a4b06}
+.alert-info{background:var(--blue-light);border:1px solid #b9cce4;color:var(--blue)}
+.alert-success{background:var(--blue-light);border:1px solid #b9cce4;color:var(--blue)}
 .empty-msg{text-align:center;padding:30px;color:var(--muted)}
 .chart-box{position:relative;height:200px}
-.rsel{width:100%;max-width:420px;padding:14px 16px;font-size:18px;font-weight:800;border:2px solid var(--primary);border-radius:12px;background:var(--primary-light);color:var(--primary);cursor:pointer}
+.rsel{width:100%;max-width:420px;padding:14px 16px;font-size:18px;font-weight:800;border:1px solid var(--blue);border-radius:12px;background:var(--blue-light);color:var(--blue);cursor:pointer}
 .keygrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:5px;margin-top:12px}
-.kc{text-align:center;padding:5px 2px;border-radius:6px;background:#f8fafc;font-size:12px;border:1px solid var(--border)}
-.kc .kn{font-size:10px;color:var(--muted)}.kc .ka{font-weight:800;color:var(--primary)}.kc.p3{background:#fef3c7}
+.kc{text-align:center;padding:5px 2px;border-radius:6px;background:#f7f9fc;font-size:12px;border:1px solid var(--border)}
+.kc .kn{font-size:10px;color:var(--muted)}.kc .ka{font-weight:800;color:var(--blue)}.kc.p3{background:var(--orange-light);border-color:#f3c795}
 .pred-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
-.pred-card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.pred-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px}
 .pc-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}.pc-num{font-weight:800;font-size:15px;min-width:34px}
-.pc-ans{background:var(--primary);color:#fff;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700}.pc-pts{background:#f1f5f9;border-radius:20px;padding:2px 8px;font-size:11px;color:var(--muted)}
-.match-badge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;margin-left:auto}.match-good{background:#d1fae5;color:#065f46}.match-ok{background:#fef3c7;color:#78350f}.match-miss{background:#fee2e2;color:#991b1b}
-.choice-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}.ch-lbl{width:20px;font-size:12px;font-weight:700;color:var(--muted);text-align:center}.ch-lbl.ans{color:var(--primary)}
-.ch-bars{flex:1;display:flex;flex-direction:column;gap:2px}.ch-bar-p{height:8px;border-radius:3px;background:#c7d2fe;min-width:3px}.ch-bar-a{height:8px;border-radius:3px;background:#4f46e5;min-width:3px}
-.ch-pcts{font-size:10px;display:flex;gap:6px;white-space:nowrap}.ch-pcts .pp{color:#818cf8}.ch-pcts .ap{color:#1e293b;font-weight:700}
+.pc-ans{background:var(--blue);color:#fff;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700}.pc-pts{background:#f1f3f6;border-radius:20px;padding:2px 8px;font-size:11px;color:var(--muted)}
+.match-badge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;margin-left:auto}
+.match-good{background:var(--blue-light);color:var(--blue)}.match-ok{background:var(--orange-light);color:#8a4b06}.match-miss{background:#FCEBEB;color:var(--danger)}
+.choice-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}.ch-lbl{width:20px;font-size:12px;font-weight:700;color:var(--muted);text-align:center}.ch-lbl.ans{color:var(--blue)}
+.ch-bars{flex:1;display:flex;flex-direction:column;gap:2px}.ch-bar-p{height:8px;border-radius:3px;background:#C9D8EA;min-width:3px}.ch-bar-a{height:8px;border-radius:3px;background:var(--blue);min-width:3px}
+.ch-pcts{font-size:10px;display:flex;gap:6px;white-space:nowrap}.ch-pcts .pp{color:#7C99BF}.ch-pcts .ap{color:#222;font-weight:700}
 .rank-head{text-align:center;margin-bottom:16px}
-.rank-head h2{font-size:24px;font-weight:800;margin-bottom:6px}
+.rank-head h2{font-size:24px;font-weight:800;margin-bottom:6px;color:var(--blue)}
 .rank-sub{font-size:13px;color:var(--muted)}
-.rank-tbl{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07)}
-.rank-tbl th{background:#1e293b;color:#fff;padding:12px;font-size:14px}
-.rank-tbl td{padding:11px 12px;border-bottom:1px solid #eef2f7;text-align:center;font-size:15px}
+.rank-tbl{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+.rank-tbl th{background:var(--blue);color:#fff;padding:12px;font-size:14px}
+.rank-tbl td{padding:11px 12px;border-bottom:1px solid #eef1f5;text-align:center;font-size:15px}
 .rank-tbl td.nm{font-weight:700;text-align:left}
 .rank-tbl td.rk{font-weight:800;width:64px;font-size:16px}
-.rank-tbl td.sc{font-weight:800;color:var(--primary);font-size:17px}
-.rank-tbl tr.top td{background:#fffbeb}
+.rank-tbl td.sc{font-weight:800;color:var(--blue);font-size:17px}
+.rank-tbl tr.top td{background:var(--orange-light)}
 @media print{
- .tab-bar,.no-print,#toast{display:none!important}
+ header,.tab-bar,.no-print,#toast{display:none!important}
  body{background:#fff;font-size:13px}
  .panel{padding:0;max-width:100%}
- .rank-tbl{box-shadow:none;border:1px solid #333}
- .rank-tbl th{background:#333!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ .rank-tbl{border:1px solid #333}
+ .rank-tbl th{background:#1B3A6B!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
  .rank-tbl tr.top td{background:#f2f2f2!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
  .grade-badge{border:1px solid #999;color:#000!important;background:#fff!important}
  .rank-head h2{font-size:22px}
  @page{margin:1.4cm}
 }
 </style></head><body>
+
+<header>
+  <div class="h-logo"><span class="re">RE:</span> <span class="name">EXAM</span></div>
+  <div class="h-user">
+    <span id="hdrRound" class="role-chip">회차 미선택</span>
+    <span style="color:#888;font-size:12px">모의고사 채점·분석</span>
+  </div>
+</header>
 
 <div class="tab-bar">
   <button class="tab-btn active" onclick="switchTab('setup',this)">🎯 회차 선택</button>
@@ -85,7 +108,7 @@ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var
 </div>
 
 <div id="p-setup" class="panel active">
-  <div class="card" style="border:2px solid var(--primary)">
+  <div class="card" style="border:1px solid var(--blue)">
     <h3>① 이번 주 회차를 선택하세요</h3>
     <p style="font-size:12px;color:var(--muted);margin-bottom:12px">회차만 고르면 정답이 자동으로 걸립니다. 정답 입력·엑셀 업로드 필요 없어요.</p>
     <select id="roundSel" class="rsel" onchange="selectRound(this.value)"></select>
@@ -116,10 +139,10 @@ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var
     <div class="stat-card"><div class="sv" id="sAvg">—</div><div class="sl">평균 점수</div></div>
     <div class="stat-card"><div class="sv" id="sMax">—</div><div class="sl">최고 점수</div></div>
     <div class="stat-card"><div class="sv" id="sMin">—</div><div class="sl">최저 점수</div></div>
-    <div class="stat-card"><div class="sv" id="s1g" style="color:#7c3aed">—</div><div class="sl">1등급 비율</div></div>
+    <div class="stat-card"><div class="sv" id="s1g" style="color:var(--blue)">—</div><div class="sl">1등급 비율</div></div>
   </div>
   <div class="card"><h3>🎯 목표 vs 실제 1등급</h3>
-    <div class="vs-wrap"><div class="vs-side"><div class="vv" id="vsT" style="color:var(--muted)">—</div><div class="vl">목표(예측)</div></div><div class="vs-mid">vs</div><div class="vs-side"><div class="vv" id="vsR" style="color:#7c3aed">—</div><div class="vl">실제</div></div></div>
+    <div class="vs-wrap"><div class="vs-side"><div class="vv" id="vsT" style="color:var(--muted)">—</div><div class="vl">목표(예측)</div></div><div class="vs-mid">vs</div><div class="vs-side"><div class="vv" id="vsR" style="color:var(--orange)">—</div><div class="vl">실제</div></div></div>
     <div id="vsMsg" style="margin-top:10px;text-align:center;font-size:13px;color:var(--muted)"></div>
   </div>
   <div class="card"><h3>📊 등급 분포</h3><div class="chart-box"><canvas id="gradeChart"></canvas></div><div id="gradeBadges" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"></div></div>
@@ -143,7 +166,7 @@ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var
 <div id="p-prediction" class="panel">
   <div id="predNoData" class="alert alert-warn">회차를 선택하면 예측 선지비율이 표시됩니다.</div>
   <div id="predSummaryArea" style="display:none">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px"><span style="display:inline-block;width:12px;height:8px;background:#c7d2fe;border-radius:2px"></span> 예측 &nbsp; <span style="display:inline-block;width:12px;height:8px;background:#4f46e5;border-radius:2px"></span> 실제(학생)</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px"><span style="display:inline-block;width:12px;height:8px;background:#C9D8EA;border-radius:2px"></span> 예측 &nbsp; <span style="display:inline-block;width:12px;height:8px;background:#1B3A6B;border-radius:2px"></span> 실제(학생)</div>
     <div class="pred-grid" id="predGrid"></div>
   </div>
 </div>
@@ -166,9 +189,9 @@ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="margin:0">📈 출판사 자평 vs 내 예측 — 1등급 비율</h3></div>
     <p style="font-size:12px;color:var(--muted);margin-bottom:10px">전국 수능 응시집단 환산 기준(등급컷 90점). <b>출판사 자평</b>은 각 회차 답지의 '예상 1등급 비율', <b>내 예측</b>은 IRT 2PL 시뮬레이션(N=50,000). 학원 상위권 집단은 EBSi형을 참고하세요.</p>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:8px"><span style="display:inline-block;width:12px;height:8px;background:#c4b5fd;border-radius:2px"></span> 출판사 자평 &nbsp; <span style="display:inline-block;width:12px;height:8px;background:#1e40af;border-radius:2px"></span> 내 예측(전국환산)</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px"><span style="display:inline-block;width:12px;height:8px;background:#E8851E;border-radius:2px"></span> 출판사 자평 &nbsp; <span style="display:inline-block;width:12px;height:8px;background:#1B3A6B;border-radius:2px"></span> 내 예측(종합)</div>
     <div style="overflow-x:auto"><table class="stbl" id="cmpTbl"></table></div>
-    <div id="cmpNote" class="alert alert-info" style="margin-top:12px;background:#eff6ff;border-color:#bfdbfe;color:#1e3a5f"></div>
+    <div id="cmpNote" class="alert alert-info" style="margin-top:12px;background:#EAF0F8;border-color:#b9cce4;color:#1B3A6B"></div>
   </div>
 </div>
 <div id="toast" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 20px;border-radius:30px;font-size:13px;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999"></div>
@@ -179,7 +202,7 @@ const SHEET_ID='1jLBY4aD5EFqNK0F3YQ6nbCI8_eIEz_XK7iiHfj8FNs0';
 const FORM_URL='https://docs.google.com/forms/d/e/1FAIpQLSdcp2hK4H5I4f6xGuwt75VVDbRfstiIT0ItyT-NL6uL7lgg2Q/viewform';
 const NUM_Q=45;
 const G_THRES=[4,11,23,40,60,77,89,96];
-const GRADE_COLORS=['#7c3aed','#2563eb','#0891b2','#059669','#65a30d','#ca8a04','#ea580c','#dc2626','#9f1239'];
+const GRADE_COLORS=['#1B3A6B','#2E5B9A','#4A7EBB','#1B7A5A','#6B8E23','#C9A227','#E8851E','#C0392B','#8B1E1E'];
 const CIRC=['','①','②','③','④','⑤'];
 let R=ROUNDS[0];            // 선택된 회차
 let students=[];
@@ -219,6 +242,7 @@ function selectRound(i){
   info.innerHTML=`<b>${R.name}</b> · 총 ${tot}점 · 3점 ${n3.length}개(${n3.join(',')}) · 예측 1등급 ${R.target1}% · 폼 회차 옵션 권장: "<b>${R.name}</b>" (또는 "${R.sheetLabel}"도 호환)`;
   document.getElementById('keyGrid').innerHTML=R.ans.map((a,k)=>
     `<div class="kc${R.pts[k]===3?' p3':''}"><div class="kn">${k+1}번</div><div class="ka">${CIRC[a]}</div></div>`).join('');
+  const hc=document.getElementById('hdrRound');if(hc)hc.textContent=R.name;
   showToast(R.name+' 정답 로드됨');
   if(rawCSV){processCSV(rawCSV);}else{students=[];renderAll();}
 }
@@ -239,24 +263,24 @@ function renderCompare(){
   let h='<thead><tr><th style="text-align:left">회차</th><th>출판사<br><span class="csub">자평</span></th><th>평가원<br><span class="csub">기준·전국</span></th><th>학평<br><span class="csub">기준·전국</span></th><th>종합<br><span class="csub">내 예측</span></th><th style="min-width:180px">범위(전국 1등급%)</th></tr></thead><tbody>';
   ROUNDS.forEach(r=>{
     const c=CMP[r.id];if(!c)return;
-    const hl=(r.id===R.id)?' style="background:#f5f3ff"':'';
+    const hl=(r.id===R.id)?' style="background:#EAF0F8"':'';
     const lo=Math.min(c.pg,c.hp),hi=Math.max(c.pg,c.hp);
     const px=v=>Math.max(0,Math.min(100,v/MAX*100));
     const bar=`<div style="position:relative;height:20px;background:#f1f5f9;border-radius:4px">`+
-      `<div style="position:absolute;left:${px(lo)}%;width:${px(hi)-px(lo)}%;top:6px;height:8px;background:#c7d2fe;border-radius:4px"></div>`+
-      `<div title="종합 ${c.co}%" style="position:absolute;left:${px(c.co)}%;top:3px;width:3px;height:14px;background:#1e3a8a;border-radius:2px"></div>`+
-      `<div title="출판사 ${c.pub}" style="position:absolute;left:${px(c.pmid)}%;top:3px;width:3px;height:14px;background:#c026d3;border-radius:2px"></div>`+
+      `<div style="position:absolute;left:${px(lo)}%;width:${px(hi)-px(lo)}%;top:6px;height:8px;background:#C9D8EA;border-radius:4px"></div>`+
+      `<div title="종합 ${c.co}%" style="position:absolute;left:${px(c.co)}%;top:3px;width:3px;height:14px;background:#1B3A6B;border-radius:2px"></div>`+
+      `<div title="출판사 ${c.pub}" style="position:absolute;left:${px(c.pmid)}%;top:3px;width:3px;height:14px;background:#E8851E;border-radius:2px"></div>`+
       `</div>`;
     h+=`<tr${hl}><td style="text-align:left;font-weight:600">${r.name}</td>`+
-       `<td style="color:#a21caf">${c.pub}</td>`+
+       `<td style="color:#B3660F">${c.pub}</td>`+
        `<td>${c.pg.toFixed(1)}%</td>`+
        `<td>${c.hp.toFixed(1)}%</td>`+
-       `<td><b style="color:#1e3a8a">${c.co.toFixed(1)}%</b></td>`+
+       `<td><b style="color:#1B3A6B">${c.co.toFixed(1)}%</b></td>`+
        `<td>${bar}</td></tr>`;
   });
   h+='</tbody>';tb.innerHTML=h;
   document.getElementById('cmpNote').innerHTML=
-    `<b>보는 법:</b> <span style="color:#1e3a8a">■</span> 종합(내 대표 예측) · <span style="color:#c026d3">■</span> 출판사 자평 · 연보라 띠 = 평가원~학평 범위. `+
+    `<b>보는 법:</b> <span style="color:#1B3A6B">■</span> 종합(내 대표 예측) · <span style="color:#E8851E">■</span> 출판사 자평 · 연보라 띠 = 평가원~학평 범위. `+
     `평가원·학평 기출의 <b>유형별 실측 정답률</b>(평가원 480문항+학평 656문항)로 보정한 값입니다. `+
     `학평은 정답률이 높아(집단이 더 쉽게 봄) 1등급이 높게, 평가원은 낮게 나와 <b>범위</b>를 만듭니다. 종합은 둘을 문항수로 가중평균한 대표값입니다.`+
     `<br><span style="font-size:11px;color:var(--muted)">※ 학원 상위권 집단이면 EBSi형 기준(종합 약 ${(Object.values(CMP).reduce((a,c)=>a+c.co_e,0)/Object.keys(CMP).length).toFixed(0)}% 안팎)에 가깝습니다. 출판사 자평이 여전히 가장 낮아, 실측 보정 후에도 출판사가 난이도를 다소 높게 표방함을 확인.</span>`;
