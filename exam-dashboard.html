@@ -208,8 +208,8 @@ header .h-user{font-size:13px;color:#555;display:flex;align-items:center;gap:12p
 </div>
 
 <div id="p-weakness" class="panel">
-  <div id="wk-list-view"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0">📚 학생별 유형 누적 약점</h3><button class="btn btn-outline" onclick="loadSheet().then(renderWeakness)">🔄 새로고침</button></div><p id="wkScope" style="font-size:12px;color:var(--muted);margin-bottom:14px"></p><div class="stat-grid" id="wkStuList" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))"><div class="empty-msg">데이터를 불러오세요.</div></div></div></div>
-  <div id="wk-detail-view" style="display:none"><div onclick="showWeakList()" style="cursor:pointer;color:var(--primary);font-weight:600;margin-bottom:12px">← 목록</div><div class="card"><h3 id="wdName">—</h3><p id="wdInfo" style="font-size:12px;color:var(--muted);margin-bottom:12px"></p><div id="wdTypeList"></div></div></div>
+  <div id="wk-list-view"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px"><h3 style="margin:0">📚 학생별 누적 약점</h3><div class="row" style="gap:6px"><button class="btn btn-sm" id="wkAllBtn" onclick="wkAll=true;renderWeakness()">전체 시리즈</button><button class="btn btn-sm btn-outline" id="wkBrandBtn" onclick="wkAll=false;renderWeakness()">현재 시리즈</button><button class="btn btn-outline" onclick="loadSheet().then(renderWeakness)">🔄 새로고침</button></div></div><p id="wkScope" style="font-size:12px;color:var(--muted);margin-bottom:14px"></p><div class="stat-grid" id="wkStuList" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))"><div class="empty-msg">데이터를 불러오세요.</div></div></div></div>
+  <div id="wk-detail-view" style="display:none"><div onclick="showWeakList()" style="cursor:pointer;color:var(--primary);font-weight:600;margin-bottom:12px">← 목록</div><div class="card"><h3 id="wdName">—</h3><p id="wdInfo" style="font-size:12px;color:var(--muted);margin-bottom:12px"></p><h4 style="margin:14px 0 6px;font-size:14px">📉 누적 유형별 오답 비율 <span style="font-weight:400;color:var(--muted);font-size:11px">(전 회차 합산 · 높은 순)</span></h4><div id="wdTypeList"></div><h4 style="margin:20px 0 4px;font-size:14px">🗂 회차별 오답 비율</h4><p style="font-size:11px;color:var(--muted);margin-bottom:8px">각 회차에서 이 학생이 틀린 문항 비율(정답키 있는 문항 기준). 오른쪽은 그 회차 최약 유형.</p><div id="wdRoundList"></div></div></div>
 </div>
 
 <div id="p-prediction" class="panel">
@@ -283,9 +283,16 @@ const CIRC=['','①','②','③','④','⑤'];
 let R=null;                 // 선택된 회차(잠금해제 후 설정)
 let students=[];
 let rawRows=[];             // 시트 전체 행(누적 약점용)
+let wkAll=true;             // 약점 누적 범위: true=전체 시리즈 / false=현재 시리즈만
 let rawCSV='';              // 원본 CSV(회차 전환 시 재필터용)
 let gradeChart=null,scoreChart=null,autoTimer=null;
 function normType(t){return String(t||'').split('(')[0].trim();}
+// 회차별 유형 라벨 표준화(동의어 병합 + 장문/복합은 위치로 세분) — 누적 약점에서 같은 유형이 합쳐지도록
+function canonType(t,idx){var s=normType(t);
+  var syn={'함축의미':'함의','함의추론':'함의','심경변화':'심경','무관문장':'무관','요약문':'요약'};
+  if(syn[s])s=syn[s];
+  if((s==='장문'||s==='복합')&&idx!=null){var pos={40:'장문제목',41:'장문어휘',42:'장문순서',43:'장문지칭',44:'장문일치'};if(pos[idx])s=pos[idx];}
+  return s;}
 function roundNo(s){const m=normLabel(s).match(/(\d+)\s*회/);return m?parseInt(m[1],10):null;}
 function roundBrand(cell){                                        // 셀에서 브랜드 추출(없으면 null)
   const c=normLabel(cell);
@@ -414,9 +421,12 @@ function renderTrend(){
   const canvas=document.getElementById('trendChart');if(!canvas)return;
   const rows=(typeof rawRows!=='undefined'&&rawRows)?rawRows:[];
   const scoreRow=(row,rd)=>{const ch=row.slice(3,3+NUM_Q).map(circledToInt);let t=0;for(let i=0;i<NUM_Q;i++){if(rd.ans[i]>0&&ch[i]===rd.ans[i])t+=rd.pts[i];}return t;};
-  const used=new Set(),byStu={};
-  rows.forEach(row=>{const name=(row[1]||'').trim();if(!name)return;const label=row[3+NUM_Q];let ri=-1;for(let k=0;k<ROUNDS.length;k++){if(roundMatches(label,ROUNDS[k])){ri=k;break;}}if(ri<0)return;used.add(ri);const t=scoreRow(row,ROUNDS[ri]);if(!byStu[name])byStu[name]={};byStu[name][ri]={total:t,grade:getGrade(t)};});
-  const rIdx=[...used].sort((a,b)=>a-b),labels=rIdx.map(i=>ROUNDS[i].name);
+  const used=new Set(),byStu={},rTimes={};
+  const parseTs=s=>{const t=Date.parse(s);if(!isNaN(t))return t;const m=String(s).match(/(\d{4})[.\-\/]\s*(\d{1,2})[.\-\/]\s*(\d{1,2})/);return m?new Date(+m[1],+m[2]-1,+m[3]).getTime():NaN;};
+  rows.forEach(row=>{const name=(row[1]||'').trim();if(!name)return;const label=row[3+NUM_Q];let ri=-1;for(let k=0;k<ROUNDS.length;k++){if(roundMatches(label,ROUNDS[k])){ri=k;break;}}if(ri<0)return;used.add(ri);const ts=parseTs(row[0]);if(!isNaN(ts))(rTimes[ri]=rTimes[ri]||[]).push(ts);const t=scoreRow(row,ROUNDS[ri]);if(!byStu[name])byStu[name]={};byStu[name][ri]={total:t,grade:getGrade(t)};});
+  const med=a=>{if(!a||!a.length)return null;const s=[...a].sort((x,y)=>x-y);return s[Math.floor(s.length/2)];};
+  const rMed={};[...used].forEach(i=>rMed[i]=med(rTimes[i]));                                   // 회차별 응답 시각 중앙값
+  const rIdx=[...used].sort((a,b)=>{const ta=rMed[a],tb=rMed[b];if(ta!=null&&tb!=null&&ta!==tb)return ta-tb;return a-b;}),labels=rIdx.map(i=>ROUNDS[i].name);  // 실제 응시일 순
   const names=Object.keys(byStu).sort((a,b)=>Object.keys(byStu[b]).length-Object.keys(byStu[a]).length);
   const btnS=document.getElementById('tmScore'),btnG=document.getElementById('tmGrade');
   if(btnS)btnS.style.cssText='background:'+(trendMode==='score'?'var(--blue);color:#fff':'#fff;color:#555')+';border:1px solid var(--border)';
@@ -428,8 +438,8 @@ function renderTrend(){
   const datasets=names.map((nm,idx)=>{const data=rIdx.map(i=>{const s=byStu[nm][i];return s?(trendMode==='grade'?s.grade:s.total):null;});const c=pal[idx%pal.length];return {label:nm,data,borderColor:c,backgroundColor:c,tension:.2,spanGaps:true,pointRadius:4,pointHoverRadius:6,borderWidth:2};});
   if(trendChart)trendChart.destroy();
   trendChart=new Chart(canvas,{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},scales:{y:trendMode==='grade'?{reverse:true,min:1,max:9,ticks:{stepSize:1,callback:v=>v+'등급'}}:{min:0,max:100,ticks:{callback:v=>v+'점'}}},plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.parsed.y==null?'-':(trendMode==='grade'?c.parsed.y+'등급':c.parsed.y+'점'))}}}}});
-  let h='<thead><tr><th style="text-align:left">학생</th>'+labels.map(l=>'<th>'+l+'</th>').join('')+'<th>추이(점수)</th></tr></thead><tbody>';
-  names.forEach(nm=>{const vals=rIdx.map(i=>byStu[nm][i]||null);const took=vals.filter(v=>v);let tr='—';if(took.length>=2){const d=took[took.length-1].total-took[0].total;tr=d>0?('<span style="color:#0b6b3a;font-weight:700">▲ +'+d+'</span>'):(d<0?('<span style="color:#C0392B;font-weight:700">▼ '+d+'</span>'):'—');}h+='<tr><td style="text-align:left;font-weight:600">'+nm+'</td>'+vals.map(v=>'<td>'+(v?(v.total+'점 · '+v.grade+'등급'):'-')+'</td>').join('')+'<td>'+tr+'</td></tr>';});
+  let h='<thead><tr><th style="text-align:left">학생</th>'+labels.map(l=>'<th>'+l+'</th>').join('')+'<th>추이(직전 대비)</th></tr></thead><tbody>';
+  names.forEach(nm=>{const vals=rIdx.map(i=>byStu[nm][i]||null);const took=vals.filter(v=>v);let tr='—';if(took.length>=2){const d=took[took.length-1].total-took[took.length-2].total;tr=d>0?('<span style="color:#0b6b3a;font-weight:700">▲ +'+d+'</span>'):(d<0?('<span style="color:#C0392B;font-weight:700">▼ '+d+'</span>'):'—');}h+='<tr><td style="text-align:left;font-weight:600">'+nm+'</td>'+vals.map(v=>'<td>'+(v?(v.total+'점 · '+v.grade+'등급'):'-')+'</td>').join('')+'<td>'+tr+'</td></tr>';});
   h+='</tbody>';document.getElementById('trendTbl').innerHTML=h;
 }
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',1800);}
@@ -647,22 +657,27 @@ function gotoPredFor(name){
 let CUMU={};
 function buildCumulative(){
   const brand=R.brand;
-  const brandRounds=ROUNDS.filter(r=>r.brand===brand);
+  const brandRounds=wkAll?ROUNDS.slice():ROUNDS.filter(r=>r.brand===brand);  // 전체/현재 시리즈
   const per={};
   rawRows.forEach(row=>{
     const cell=row[3+NUM_Q];if(!String(cell||'').trim())return;
     const rd=brandRounds.find(r=>roundMatches(cell,r));if(!rd)return;  // 브랜드+번호 매칭
     const name=(row[1]||'').trim();if(!name)return;
     const choices=row.slice(3,3+NUM_Q).map(circledToInt);
-    const rec=per[name]||(per[name]={types:{},subs:[],scores:[]});
-    let sc=0;
+    const rec=per[name]||(per[name]={types:{},subs:[],scores:[],rounds:[]});
+    let sc=0,rW=0,rN=0;const rByType={};                  // 이 회차 오답/총/유형
     for(let i=0;i<NUM_Q;i++){
-      const ty=normType(rd.types[i]);
-      const t=rec.types[ty]||(rec.types[ty]={c:0,n:0});
-      t.n++;const ok=rd.ans[i]>0&&choices[i]===rd.ans[i];if(ok){t.c++;sc+=rd.pts[i];}
+      if(!(rd.ans[i]>0))continue;                          // 정답키 있는 문항만
+      const ty=canonType(rd.types[i],i);                   // 라벨 표준화(동의어 병합)
+      const t=rec.types[ty]||(rec.types[ty]={c:0,n:0});    // 누적 유형
+      const rt=rByType[ty]||(rByType[ty]={c:0,n:0});       // 회차 유형
+      t.n++;rt.n++;rN++;
+      if(choices[i]===rd.ans[i]){t.c++;rt.c++;sc+=rd.pts[i];}else{rW++;}
     }
     rec.subs.push(rd.name);rec.scores.push(sc);
+    rec.rounds.push({name:rd.name,wrong:rW,total:rN,byType:rByType});
   });
+  Object.values(per).forEach(rec=>rec.rounds.sort((a,b)=>(roundNo(a.name)||0)-(roundNo(b.name)||0)));
   CUMU=per;return per;
 }
 // 순위표 인쇄 전용: 회차명을 "리드림 모의고사 N회"로, 이름을 가운데 마스킹(장*봉)
@@ -701,7 +716,11 @@ function renderRank(){
 function renderWeakness(){
   const per=buildCumulative();
   const brand=R.brand;
-  document.getElementById('wkScope').textContent=`${brand} 시리즈 전체 회차를 합산한 유형별 약점입니다. (지금 로드된 회차와 무관하게 각 응답을 해당 회차 정답으로 채점)`;
+  const sc=document.getElementById('wkScope');
+  if(sc)sc.textContent=wkAll?`전체 시리즈(모든 회차)를 학생별로 합산한 약점입니다. 여러 시험을 본 학생은 브랜드와 무관하게 전부 누적됩니다.`:`${brand} 시리즈 회차만 합산한 약점입니다. (다른 시리즈 응시분은 제외)`;
+  const ba=document.getElementById('wkAllBtn'),bb=document.getElementById('wkBrandBtn');
+  if(ba)ba.className='btn btn-sm'+(wkAll?'':' btn-outline');
+  if(bb)bb.className='btn btn-sm'+(wkAll?' btn-outline':'');
   const el=document.getElementById('wkStuList');
   const names=Object.keys(per);
   if(!names.length){el.innerHTML='<div class="empty-msg">'+brand+' 응답이 없습니다. 폼 회차 라벨을 확인하세요.</div>';return;}
@@ -710,7 +729,7 @@ function renderWeakness(){
     // 최약 유형(듣기 제외, 문항 3개 이상)
     let weak=null;
     Object.entries(rec.types).forEach(([ty,t])=>{if(ty==='듣기'||t.n<3)return;const r=t.c/t.n;if(!weak||r<weak.r)weak={ty,r};});
-    const wtxt=weak?`${weak.ty} ${(weak.r*100).toFixed(0)}%`:'—';
+    const wtxt=weak?`${weak.ty} 오답 ${Math.round((1-weak.r)*100)}%`:'—';
     return `<div class="stat-card" style="cursor:pointer;text-align:left" onclick="showWeakDetail('${name.replace(/'/g,"\\'")}')">
       <div style="font-weight:800;font-size:15px">${name}</div>
       <div class="sl" style="margin-top:4px">응시 ${rec.subs.length}회 · 평균 ${avg}점</div>
@@ -722,12 +741,22 @@ function showWeakDetail(name){
   document.getElementById('wk-list-view').style.display='none';document.getElementById('wk-detail-view').style.display='block';
   document.getElementById('wdName').textContent='📌 '+name;
   const avg=(rec.scores.reduce((a,b)=>a+b,0)/rec.scores.length).toFixed(0);
-  document.getElementById('wdInfo').textContent=`${R.brand} 시리즈 ${rec.subs.length}회 응시(${rec.subs.join(', ')}) · 평균 ${avg}점 · 유형별 누적 정답률(낮은 순)`;
-  const arr=Object.entries(rec.types).map(([ty,t])=>({ty,r:t.c/t.n,c:t.c,n:t.n})).sort((a,b)=>a.r-b.r);
+  let totW=0,totN=0;Object.values(rec.types).forEach(t=>{totW+=(t.n-t.c);totN+=t.n;});
+  const cumR=totN?Math.round(totW/totN*100):0;
+  document.getElementById('wdInfo').innerHTML=`${wkAll?'전체 누적':R.brand+' 시리즈'} <b>${rec.subs.length}회</b> 응시(${rec.subs.join(', ')}) · 평균 ${avg}점 · <b>누적 오답 ${totW}/${totN}문항 (${cumR}%)</b>`;
+  const barCol=p=>p>50?'#dc2626':p>30?'#f59e0b':'#10b981';
+  const arr=Object.entries(rec.types).map(([ty,t])=>({ty,w:t.n-t.c,n:t.n,r:(t.n-t.c)/t.n})).sort((a,b)=>b.r-a.r);
   document.getElementById('wdTypeList').innerHTML=arr.map(x=>{
-    const p=Math.round(x.r*100);const col=p<50?'#dc2626':p<70?'#f59e0b':'#10b981';
-    return `<div class="q-item${p<50?' hard':''}"><div class="q-num" style="width:120px">${x.ty}</div><div class="bar-wrap"><div class="bar-inner" style="width:${Math.max(p,6)}%;background:${col}">${p}%</div></div><span class="chip chip-gray">${x.c}/${x.n}문항</span></div>`;
+    const p=Math.round(x.r*100);
+    return `<div class="q-item${p>50?' hard':''}"><div class="q-num" style="width:120px">${x.ty}</div><div class="bar-wrap"><div class="bar-inner" style="width:${Math.max(p,6)}%;background:${barCol(p)}">${p}%</div></div><span class="chip chip-gray">오답 ${x.w}/${x.n}</span></div>`;
   }).join('');
+  const rl=document.getElementById('wdRoundList');if(!rl)return;
+  rl.innerHTML=(rec.rounds||[]).map(rr=>{
+    const p=rr.total?Math.round(rr.wrong/rr.total*100):0;
+    let w=null;Object.entries(rr.byType||{}).forEach(([ty,t])=>{if(ty==='듣기'||t.n<2)return;const r=(t.n-t.c)/t.n;if(!w||r>w.r)w={ty,r};});
+    const wt=(w&&w.r>0)?` · 최약 ${w.ty} ${Math.round(w.r*100)}%`:'';
+    return `<div class="q-item${p>50?' hard':''}"><div class="q-num" style="width:120px">${rr.name}</div><div class="bar-wrap"><div class="bar-inner" style="width:${Math.max(p,6)}%;background:${barCol(p)}">${p}%</div></div><span class="chip chip-gray">오답 ${rr.wrong}/${rr.total}${wt}</span></div>`;
+  }).join('')||'<div class="empty-msg">회차 데이터가 없습니다.</div>';
 }
 function showWeakList(){document.getElementById('wk-list-view').style.display='block';document.getElementById('wk-detail-view').style.display='none';}
 function matchScore(pred,act){let s=0;for(let j=0;j<5;j++)s+=Math.max(0,1-Math.abs(pred[j]-act[j])/100);return s/5*100;}
