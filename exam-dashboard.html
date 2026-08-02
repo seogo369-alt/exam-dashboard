@@ -208,8 +208,8 @@ header .h-user{font-size:13px;color:#555;display:flex;align-items:center;gap:12p
 </div>
 
 <div id="p-weakness" class="panel">
-  <div id="wk-list-view"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px"><h3 style="margin:0">📚 학생별 누적 약점</h3><div class="row" style="gap:6px"><button class="btn btn-sm" id="wkAllBtn" onclick="wkAll=true;renderWeakness()">전체 시리즈</button><button class="btn btn-sm btn-outline" id="wkBrandBtn" onclick="wkAll=false;renderWeakness()">현재 시리즈</button><button class="btn btn-outline" onclick="loadSheet().then(renderWeakness)">🔄 새로고침</button></div></div><p id="wkScope" style="font-size:12px;color:var(--muted);margin-bottom:14px"></p><div class="stat-grid" id="wkStuList" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))"><div class="empty-msg">데이터를 불러오세요.</div></div></div></div>
-  <div id="wk-detail-view" style="display:none"><div onclick="showWeakList()" style="cursor:pointer;color:var(--primary);font-weight:600;margin-bottom:12px">← 목록</div><div class="card"><h3 id="wdName">—</h3><p id="wdInfo" style="font-size:12px;color:var(--muted);margin-bottom:12px"></p><h4 style="margin:14px 0 6px;font-size:14px">📉 누적 유형별 오답 비율 <span style="font-weight:400;color:var(--muted);font-size:11px">(전 회차 합산 · 높은 순)</span></h4><div id="wdTypeList"></div><h4 style="margin:20px 0 4px;font-size:14px">🗂 회차별 오답 비율</h4><p style="font-size:11px;color:var(--muted);margin-bottom:8px">각 회차에서 이 학생이 틀린 문항 비율(정답키 있는 문항 기준). 오른쪽은 그 회차 최약 유형.</p><div id="wdRoundList"></div></div></div>
+  <div id="wk-list-view"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px"><h3 style="margin:0">📚 학생별 누적 약점</h3><div class="row" style="gap:6px"><button class="btn btn-sm" id="wkAllBtn" onclick="wkMode='all';renderWeakness()">전체</button><button class="btn btn-sm btn-outline" id="wkBrandBtn" onclick="wkMode='brand';renderWeakness()">현재 시리즈</button><button class="btn btn-sm btn-outline" id="wkRoundBtn" onclick="wkMode='round';renderWeakness()">현재 회차</button><button class="btn btn-outline" onclick="loadSheet().then(renderWeakness)">🔄 새로고침</button></div></div><p id="wkScope" style="font-size:12px;color:var(--muted);margin-bottom:10px"></p><div class="row" style="gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap"><input id="wkSearch" placeholder="🔍 학생 이름 검색" oninput="renderWeakness()" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;min-width:150px"><span id="wkSelInfo" style="font-size:12px;color:var(--primary);font-weight:700"></span><button class="btn btn-sm btn-primary" id="wkGroupBtn" onclick="showWeakGroup()" style="display:none">📊 선택 학생 합산 보기</button><button class="btn btn-sm btn-outline" id="wkClearBtn" onclick="clearWkSel()" style="display:none">선택 해제</button></div><div class="stat-grid" id="wkStuList" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))"><div class="empty-msg">데이터를 불러오세요.</div></div></div></div>
+  <div id="wk-detail-view" style="display:none"><div onclick="showWeakList()" style="cursor:pointer;color:var(--primary);font-weight:600;margin-bottom:12px">← 목록</div><div class="card"><h3 id="wdName">—</h3><p id="wdInfo" style="font-size:12px;color:var(--muted);margin-bottom:12px"></p><h4 style="margin:14px 0 6px;font-size:14px">📉 누적 유형별 오답 비율 <span style="font-weight:400;color:var(--muted);font-size:11px">(전 회차 합산 · 높은 순)</span></h4><div id="wdTypeList"></div><h4 style="margin:20px 0 4px;font-size:14px">🗂 회차별 오답 비율</h4><p style="font-size:11px;color:var(--muted);margin-bottom:8px">각 회차에서 이 학생이 틀린 문항 비율(정답키 있는 문항 기준). 오른쪽은 그 회차 최약 유형.</p><div id="wdRoundList"></div></div></div><div id="wk-group-view" style="display:none"><div onclick="showWeakList()" style="cursor:pointer;color:var(--primary);font-weight:600;margin-bottom:12px">← 목록</div><div class="card"><h3 id="wgName">—</h3><p id="wgInfo" style="font-size:12px;color:var(--muted);margin-bottom:12px"></p><h4 style="margin:14px 0 6px;font-size:14px">📉 선택 학생 합산 유형별 오답 비율 <span style="font-weight:400;color:var(--muted);font-size:11px">(높은 순)</span></h4><div id="wgTypeList"></div><h4 style="margin:20px 0 6px;font-size:14px">👥 포함 학생 <span style="font-weight:400;color:var(--muted);font-size:11px">(클릭 시 개별 보기)</span></h4><div id="wgMembers" class="row" style="gap:4px;flex-wrap:wrap"></div></div></div>
 </div>
 
 <div id="p-prediction" class="panel">
@@ -283,7 +283,8 @@ const CIRC=['','①','②','③','④','⑤'];
 let R=null;                 // 선택된 회차(잠금해제 후 설정)
 let students=[];
 let rawRows=[];             // 시트 전체 행(누적 약점용)
-let wkAll=true;             // 약점 누적 범위: true=전체 시리즈 / false=현재 시리즈만
+let wkMode='all';           // 약점 범위: 'all'전체 / 'brand'현재 시리즈 / 'round'현재 회차
+let wkSelected=new Set();   // 약점 다중 선택 학생
 let rawCSV='';              // 원본 CSV(회차 전환 시 재필터용)
 let gradeChart=null,scoreChart=null,autoTimer=null;
 function normType(t){return String(t||'').split('(')[0].trim();}
@@ -657,7 +658,7 @@ function gotoPredFor(name){
 let CUMU={};
 function buildCumulative(){
   const brand=R.brand;
-  const brandRounds=wkAll?ROUNDS.slice():ROUNDS.filter(r=>r.brand===brand);  // 전체/현재 시리즈
+  const brandRounds=wkMode==='all'?ROUNDS.slice():wkMode==='round'?ROUNDS.filter(r=>r.name===R.name):ROUNDS.filter(r=>r.brand===brand);  // 전체/현재시리즈/현재회차
   const per={};
   rawRows.forEach(row=>{
     const cell=row[3+NUM_Q];if(!String(cell||'').trim())return;
@@ -681,7 +682,7 @@ function buildCumulative(){
   CUMU=per;return per;
 }
 // 순위표 인쇄 전용: 회차명을 "리드림 모의고사 N회"로, 이름을 가운데 마스킹(장*봉)
-function rankRoundLabel(){const no=roundNo(R.sheetLabel)||roundNo(R.name)||'';return '리드림 모의고사 '+no+'회';}
+function rankRoundLabel(){return R.name||R.sheetLabel||'모의고사';}  // 선택 회차명(브랜드 포함) 그대로
 function maskName(nm){
   const s=String(nm||'').trim();
   const ch=[...s];                                  // 유니코드 안전 분해
@@ -717,33 +718,38 @@ function renderWeakness(){
   const per=buildCumulative();
   const brand=R.brand;
   const sc=document.getElementById('wkScope');
-  if(sc)sc.textContent=wkAll?`전체 시리즈(모든 회차)를 학생별로 합산한 약점입니다. 여러 시험을 본 학생은 브랜드와 무관하게 전부 누적됩니다.`:`${brand} 시리즈 회차만 합산한 약점입니다. (다른 시리즈 응시분은 제외)`;
-  const ba=document.getElementById('wkAllBtn'),bb=document.getElementById('wkBrandBtn');
-  if(ba)ba.className='btn btn-sm'+(wkAll?'':' btn-outline');
-  if(bb)bb.className='btn btn-sm'+(wkAll?' btn-outline':'');
+  if(sc)sc.textContent=wkMode==='all'?`전체 — 학생이 본 모든 시험(브랜드 무관)을 합산한 약점입니다.`:wkMode==='round'?`현재 회차 — ${R.name} 이 시험 하나만의 약점입니다.`:`현재 시리즈 — ${brand} 시리즈 회차만 합산(다른 시리즈 제외).`;
+  const setWkBtn=(id,on)=>{const b=document.getElementById(id);if(b)b.className='btn btn-sm '+(on?'btn-primary':'btn-outline');};
+  setWkBtn('wkAllBtn',wkMode==='all');setWkBtn('wkBrandBtn',wkMode==='brand');setWkBtn('wkRoundBtn',wkMode==='round');
   const el=document.getElementById('wkStuList');
-  const names=Object.keys(per);
-  if(!names.length){el.innerHTML='<div class="empty-msg">'+brand+' 응답이 없습니다. 폼 회차 라벨을 확인하세요.</div>';return;}
+  const allNames=Object.keys(per);
+  if(!allNames.length){el.innerHTML='<div class="empty-msg">응답이 없습니다. 폼 회차 라벨을 확인하세요.</div>';updateWkSelBar();return;}
+  const q=((document.getElementById('wkSearch')||{}).value||'').trim().toLowerCase();
+  const names=q?allNames.filter(nm=>nm.toLowerCase().includes(q)):allNames;
+  if(!names.length){el.innerHTML='<div class="empty-msg">검색 결과가 없습니다.</div>';updateWkSelBar();return;}
   el.innerHTML=names.map(name=>{
     const rec=per[name];const avg=(rec.scores.reduce((a,b)=>a+b,0)/rec.scores.length).toFixed(0);
-    // 최약 유형(듣기 제외, 문항 3개 이상)
     let weak=null;
     Object.entries(rec.types).forEach(([ty,t])=>{if(ty==='듣기'||t.n<3)return;const r=t.c/t.n;if(!weak||r<weak.r)weak={ty,r};});
     const wtxt=weak?`${weak.ty} 오답 ${Math.round((1-weak.r)*100)}%`:'—';
-    return `<div class="stat-card" style="cursor:pointer;text-align:left" onclick="showWeakDetail('${name.replace(/'/g,"\\'")}')">
-      <div style="font-weight:800;font-size:15px">${name}</div>
+    const esc=name.replace(/'/g,"\\'");const on=wkSelected.has(name);
+    return `<div class="stat-card" style="cursor:pointer;text-align:left;position:relative;${on?'outline:2px solid var(--primary);outline-offset:-2px;border-radius:10px':''}" onclick="showWeakDetail('${esc}')">
+      <label style="position:absolute;top:6px;right:6px;margin:0" onclick="event.stopPropagation()"><input type="checkbox" ${on?'checked':''} onclick="event.stopPropagation();toggleWkSel('${esc}')" style="width:16px;height:16px;cursor:pointer"></label>
+      <div style="font-weight:800;font-size:15px;padding-right:20px">${name}</div>
       <div class="sl" style="margin-top:4px">응시 ${rec.subs.length}회 · 평균 ${avg}점</div>
       <div style="margin-top:6px"><span class="chip chip-red">최약 ${wtxt}</span></div></div>`;
   }).join('');
+  updateWkSelBar();
 }
 function showWeakDetail(name){
   const rec=CUMU[name];if(!rec)return;
   document.getElementById('wk-list-view').style.display='none';document.getElementById('wk-detail-view').style.display='block';
+  var _g=document.getElementById('wk-group-view');if(_g)_g.style.display='none';
   document.getElementById('wdName').textContent='📌 '+name;
   const avg=(rec.scores.reduce((a,b)=>a+b,0)/rec.scores.length).toFixed(0);
   let totW=0,totN=0;Object.values(rec.types).forEach(t=>{totW+=(t.n-t.c);totN+=t.n;});
   const cumR=totN?Math.round(totW/totN*100):0;
-  document.getElementById('wdInfo').innerHTML=`${wkAll?'전체 누적':R.brand+' 시리즈'} <b>${rec.subs.length}회</b> 응시(${rec.subs.join(', ')}) · 평균 ${avg}점 · <b>누적 오답 ${totW}/${totN}문항 (${cumR}%)</b>`;
+  document.getElementById('wdInfo').innerHTML=`${wkMode==='all'?'전체 누적':wkMode==='round'?R.name:R.brand+' 시리즈'} <b>${rec.subs.length}회</b> 응시(${rec.subs.join(', ')}) · 평균 ${avg}점 · <b>누적 오답 ${totW}/${totN}문항 (${cumR}%)</b>`;
   const barCol=p=>p>50?'#dc2626':p>30?'#f59e0b':'#10b981';
   const arr=Object.entries(rec.types).map(([ty,t])=>({ty,w:t.n-t.c,n:t.n,r:(t.n-t.c)/t.n})).sort((a,b)=>b.r-a.r);
   document.getElementById('wdTypeList').innerHTML=arr.map(x=>{
@@ -758,7 +764,25 @@ function showWeakDetail(name){
     return `<div class="q-item${p>50?' hard':''}"><div class="q-num" style="width:120px">${rr.name}</div><div class="bar-wrap"><div class="bar-inner" style="width:${Math.max(p,6)}%;background:${barCol(p)}">${p}%</div></div><span class="chip chip-gray">오답 ${rr.wrong}/${rr.total}${wt}</span></div>`;
   }).join('')||'<div class="empty-msg">회차 데이터가 없습니다.</div>';
 }
-function showWeakList(){document.getElementById('wk-list-view').style.display='block';document.getElementById('wk-detail-view').style.display='none';}
+function showWeakList(){document.getElementById('wk-list-view').style.display='block';document.getElementById('wk-detail-view').style.display='none';var g=document.getElementById('wk-group-view');if(g)g.style.display='none';}
+function toggleWkSel(name){if(wkSelected.has(name))wkSelected.delete(name);else wkSelected.add(name);renderWeakness();}
+function clearWkSel(){wkSelected.clear();renderWeakness();}
+function updateWkSelBar(){const n=wkSelected.size;const info=document.getElementById('wkSelInfo');if(info)info.textContent=n?(n+'명 선택'):'';const gb=document.getElementById('wkGroupBtn');if(gb)gb.style.display=n>=1?'':'none';const cb=document.getElementById('wkClearBtn');if(cb)cb.style.display=n>=1?'':'none';}
+function showWeakGroup(){
+  const sel=[...wkSelected].filter(n=>CUMU[n]);
+  if(!sel.length){showToast('학생을 먼저 선택하세요');return;}
+  document.getElementById('wk-list-view').style.display='none';document.getElementById('wk-detail-view').style.display='none';document.getElementById('wk-group-view').style.display='block';
+  document.getElementById('wgName').textContent='👥 선택 '+sel.length+'명 합산 약점';
+  const types={};let subsN=0;
+  sel.forEach(n=>{const rec=CUMU[n];subsN+=rec.subs.length;Object.entries(rec.types).forEach(([ty,t])=>{const a=types[ty]||(types[ty]={c:0,n:0});a.c+=t.c;a.n+=t.n;});});
+  let totW=0,totN=0;Object.values(types).forEach(t=>{totW+=t.n-t.c;totN+=t.n;});
+  const scope=wkMode==='all'?'전체':wkMode==='round'?R.name:R.brand+' 시리즈';
+  document.getElementById('wgInfo').innerHTML=`선택 <b>${sel.length}명</b> (${sel.join(', ')}) · 범위 ${scope} · 합산 응시 ${subsN}회 · <b>합산 오답 ${totW}/${totN}문항 (${totN?Math.round(totW/totN*100):0}%)</b>`;
+  const barCol=p=>p>50?'#dc2626':p>30?'#f59e0b':'#10b981';
+  const arr=Object.entries(types).map(([ty,t])=>({ty,w:t.n-t.c,n:t.n,r:t.n?(t.n-t.c)/t.n:0})).sort((a,b)=>b.r-a.r);
+  document.getElementById('wgTypeList').innerHTML=arr.map(x=>{const p=Math.round(x.r*100);return `<div class="q-item${p>50?' hard':''}"><div class="q-num" style="width:120px">${x.ty}</div><div class="bar-wrap"><div class="bar-inner" style="width:${Math.max(p,6)}%;background:${barCol(p)}">${p}%</div></div><span class="chip chip-gray">오답 ${x.w}/${x.n}</span></div>`;}).join('');
+  document.getElementById('wgMembers').innerHTML=sel.map(n=>`<span class="chip chip-gray" style="cursor:pointer" onclick="showWeakDetail('${n.replace(/'/g,"\\'")}')">${n}</span>`).join('');
+}
 function matchScore(pred,act){let s=0;for(let j=0;j<5;j++)s+=Math.max(0,1-Math.abs(pred[j]-act[j])/100);return s/5*100;}
 function renderPrediction(){
   document.getElementById('predNoData').style.display='none';document.getElementById('predSummaryArea').style.display='';
