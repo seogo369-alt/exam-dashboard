@@ -64,7 +64,8 @@ header .h-user{font-size:13px;color:#555;display:flex;align-items:center;gap:12p
 .match-good{background:var(--blue-light);color:var(--blue)}.match-ok{background:var(--orange-light);color:#8a4b06}.match-miss{background:#FCEBEB;color:var(--danger)}
 .choice-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}.ch-lbl{width:20px;font-size:12px;font-weight:700;color:var(--muted);text-align:center}.ch-lbl.ans{color:var(--blue)}
 .ch-bars{flex:1;display:flex;flex-direction:column;gap:2px}.ch-bar-p{height:8px;border-radius:3px;background:#C9D8EA;min-width:3px}.ch-bar-a{height:8px;border-radius:3px;background:var(--blue);min-width:3px}
-.wrank{font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;white-space:nowrap;color:#fff}.wrank.w1{background:#dc2626}.wrank.w2{background:#f59e0b}.choice-row.wtop1 .ch-lbl{color:#dc2626}.choice-row.wtop2 .ch-lbl{color:#b45309}
+.wrank{font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;white-space:nowrap}.wrank.w1{background:#dc2626;color:#fff}.wrank.wp{background:#fff;color:#dc2626;border:1px solid #dc2626}.wrank.w2{background:#fff;color:#f59e0b;border:1px solid #f59e0b}.choice-row.wtop1{background:#fff4f4;border-radius:6px}.pred-cmp{font-size:11px;margin:3px 0 7px;padding:4px 7px;background:#f6f8fb;border-radius:6px;line-height:1.6}.pred-cmp .cp{color:#b45309}.pred-cmp .ca{color:#dc2626}.pred-cmp .cok{color:#0b6b3a;font-weight:700}.pred-cmp .cno{color:#dc2626;font-weight:700}
+.hit-sum{background:#f6f8fb;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.hchip{font-weight:700;padding:3px 9px;border-radius:8px;background:#eef2f8}.hchip.lis{background:#eafaf1}.hchip.rea{background:#fdeeee}.hit-types{margin-top:8px;display:flex;gap:5px;flex-wrap:wrap;align-items:center}.tchip{font-size:11px;padding:2px 8px;border-radius:12px;border:1px solid var(--border);cursor:pointer;background:#fff;color:#555;white-space:nowrap}.tchip.on{background:var(--blue);color:#fff;border-color:var(--blue)}
 .ch-pcts{font-size:10px;display:flex;gap:6px;white-space:nowrap}.ch-pcts .pp{color:#7C99BF}.ch-pcts .ap{color:#222;font-weight:700}
 .rank-head{text-align:center;margin-bottom:16px}
 .rank-head h2{font-size:24px;font-weight:800;margin-bottom:6px;color:var(--blue)}
@@ -222,8 +223,8 @@ header .h-user{font-size:13px;color:#555;display:flex;align-items:center;gap:12p
       <label style="font-size:13px;display:inline-flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="wrongOnly" onchange="renderPrediction()"> <b>틀린 문항만</b></label>
       <span id="predCnt" style="font-size:12px;color:var(--muted)"></span>
     </div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px"><span style="display:inline-block;width:12px;height:8px;background:#C9D8EA;border-radius:2px"></span> 예측 &nbsp; <span style="display:inline-block;width:12px;height:8px;background:#1B3A6B;border-radius:2px"></span> 실제(학생) &nbsp;·&nbsp; <span class="wrank w1">오답1위</span> <span class="wrank w2">2위</span> 예측 최다오답(정답 제외 상위 2)</div>
-    <div class="pred-grid" id="predGrid"></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px"><span style="display:inline-block;width:12px;height:8px;background:#C9D8EA;border-radius:2px"></span> 예측 &nbsp; <span style="display:inline-block;width:12px;height:8px;background:#1B3A6B;border-radius:2px"></span> 실제(학생) &nbsp;·&nbsp; <span class="wrank wp">예측1위</span> <span class="wrank w1">실제1위</span> 최다오답(정답 제외)</div>
+    <div id="predHitSummary" style="margin-bottom:12px"></div><div class="pred-grid" id="predGrid"></div>
   </div>
 </div>
 
@@ -286,6 +287,7 @@ let students=[];
 let rawRows=[];             // 시트 전체 행(누적 약점용)
 let wkMode='all';           // 약점 범위: 'all'전체 / 'brand'현재 시리즈 / 'round'현재 회차
 let wkSelected=new Set();   // 약점 다중 선택 학생
+let predSelTypes=new Set();  // 선지예측: 선택 독해 유형(비어있으면 전체)
 let rawCSV='';              // 원본 CSV(회차 전환 시 재필터용)
 let gradeChart=null,scoreChart=null,autoTimer=null;
 function normType(t){return String(t||'').split('(')[0].trim();}
@@ -785,6 +787,7 @@ function showWeakGroup(){
   document.getElementById('wgMembers').innerHTML=sel.map(n=>`<span class="chip chip-gray" style="cursor:pointer" onclick="showWeakDetail('${n.replace(/'/g,"\\'")}')">${n}</span>`).join('');
 }
 function matchScore(pred,act){let s=0;for(let j=0;j<5;j++)s+=Math.max(0,1-Math.abs(pred[j]-act[j])/100);return s/5*100;}
+function togglePredType(t){if(predSelTypes.has(t))predSelTypes.delete(t);else predSelTypes.add(t);renderPrediction();}
 function renderPrediction(){
   document.getElementById('predNoData').style.display='none';document.getElementById('predSummaryArea').style.display='';
   // 학생 드롭다운 채우기
@@ -799,12 +802,28 @@ function renderPrediction(){
   const target=pick?students.filter(s=>s.name===pick):students;
   const n=target.length;const act=Array.from({length:NUM_Q},()=>new Array(5).fill(0));
   target.forEach(s=>{for(let i=0;i<NUM_Q;i++){const c=s.choices[i];if(c>=1&&c<=5)act[i][c-1]++;}});
+  // ── 최다오답(오답1위) 예측 적중 요약: 반 전체 기준 ──
+  {const aA=Array.from({length:NUM_Q},()=>[0,0,0,0,0]);const nA=students.length;
+   students.forEach(s=>{for(let i=0;i<NUM_Q;i++){const c=s.choices[i];if(c>=1&&c<=5)aA[i][c-1]++;}});
+   let hAll=[0,0],hL=[0,0],hR=[0,0];const byT={};
+   if(nA)for(let i=0;i<NUM_Q;i++){if(R.ans[i]<=0)continue;
+     const wr=[0,1,2,3,4].filter(j=>j+1!==R.ans[i]);const ws=wr.reduce((s,j)=>s+aA[i][j],0);if(ws===0)continue;
+     const pt=wr.reduce((b,j)=>R.pred[i][j]>R.pred[i][b]?j:b,wr[0]);
+     const at=wr.reduce((b,j)=>aA[i][j]>aA[i][b]?j:b,wr[0]);
+     const hit=pt===at?1:0;hAll[0]+=hit;hAll[1]++;
+     if(String(R.types[i]).indexOf('듣기')>=0){hL[0]+=hit;hL[1]++;}
+     else{hR[0]+=hit;hR[1]++;const ty=canonType(R.types[i],i);(byT[ty]=byT[ty]||[0,0]);byT[ty][0]+=hit;byT[ty][1]++;}}
+   const pc=a=>a[1]?Math.round(100*a[0]/a[1])+'%':'—';const tks=Object.keys(byT);
+   let sel=[0,0];tks.forEach(t=>{if(predSelTypes.size===0||predSelTypes.has(t)){sel[0]+=byT[t][0];sel[1]+=byT[t][1];}});
+   const el=document.getElementById('predHitSummary');
+   if(el)el.innerHTML=!nA?'':`<div class="hit-sum"><b>🎯 최다오답 예측 적중 <span style="font-weight:400;color:var(--muted);font-size:11px">(반 전체·정답 제외 최다오답 기준)</span></b><span class="hchip">전체 ${hAll[0]}/${hAll[1]} (${pc(hAll)})</span><span class="hchip lis">듣기 ${hL[0]}/${hL[1]} (${pc(hL)})</span><span class="hchip rea">독해 ${hR[0]}/${hR[1]} (${pc(hR)})</span></div><div class="hit-types"><span style="font-size:11px;color:var(--muted)">독해 유형(클릭 시 아래 카드도 그 유형만):</span><span class="tchip${predSelTypes.size===0?' on':''}" onclick="predSelTypes.clear();renderPrediction()">전체</span>${tks.map(t=>`<span class="tchip${(predSelTypes.size===0||predSelTypes.has(t))?' on':''}" onclick="togglePredType('${t}')">${t} ${byT[t][0]}/${byT[t][1]}</span>`).join('')}<b style="margin-left:4px;white-space:nowrap">→ 선택 ${sel[0]}/${sel[1]} (${pc(sel)})</b></div>`;}
   // 표시 대상 문항 결정
   let idxs=Array.from({length:NUM_Q},(_,i)=>i);
   if(wrongOnlyOn&&n){
     if(pick){const st=target[0];idxs=idxs.filter(i=>!st.correct[i]);}
     else{idxs=idxs.filter(i=>students.some(s=>!s.correct[i]));}
   }
+  if(predSelTypes.size){idxs=idxs.filter(i=>R.ans[i]>0&&String(R.types[i]).indexOf('듣기')<0&&predSelTypes.has(canonType(R.types[i],i)));}
   const cnt=document.getElementById('predCnt');
   if(cnt)cnt.textContent=wrongOnlyOn?`${idxs.length}개 문항 표시${pick?` · ${pick} 오답`:' · 한 명이라도 틀린 문항'}`:`전체 ${NUM_Q}문항`;
   let html='';
@@ -813,13 +832,18 @@ function renderPrediction(){
     const aR=act[i].map(v=>n?v/n*100:0);const sc=n?matchScore(R.pred[i],aR):-1;
     let badge='';if(sc>=0){const cl=sc>=80?'match-good':sc>=50?'match-ok':'match-miss';const lb=sc>=80?'✓ 일치':sc>=50?'△ 부분':'✗ 빗나감';badge=`<span class="match-badge ${cl}">${lb}</span>`;}
     const mx=Math.max(...R.pred[i],...aR,1);let rows='';
-    const _wr=[0,1,2,3,4].filter(j=>j+1!==R.ans[i]).sort((a,b)=>R.pred[i][b]-R.pred[i][a]);const _t1=_wr[0],_t2=_wr[1];
-    for(let j=0;j<5;j++){const ans=(j+1===R.ans[i]);const wk=(j===_t1)?'<span class="wrank w1">오답1위</span>':(j===_t2)?'<span class="wrank w2">2위</span>':'';
-      rows+=`<div class="choice-row${j===_t1?' wtop1':j===_t2?' wtop2':''}"><span class="ch-lbl${ans?' ans':''}">${CIRC[j+1]}</span>${wk}<div class="ch-bars"><div class="ch-bar-p" style="width:${Math.round(R.pred[i][j]/mx*100)}%"></div>${n?`<div class="ch-bar-a" style="width:${Math.round(aR[j]/mx*100)}%"></div>`:''}</div><div class="ch-pcts"><span class="pp">${R.pred[i][j].toFixed(0)}</span>${n?`<span class="ap">${aR[j].toFixed(0)}</span>`:''}</div></div>`;}
+    const _wr=[0,1,2,3,4].filter(j=>j+1!==R.ans[i]).sort((a,b)=>R.pred[i][b]-R.pred[i][a]);const _pt1=_wr[0],_pt2=_wr[1];
+    let _at1=-1;if(n){_at1=_wr.reduce((b,j)=>act[i][j]>act[i][b]?j:b,_wr[0]);}
+    for(let j=0;j<5;j++){const ans=(j+1===R.ans[i]);let tag='';
+      if(!ans){ if(n){ if(j===_at1)tag+='<span class="wrank w1">실제1위</span>'; if(j===_pt1)tag+='<span class="wrank wp">예측1위</span>'; }
+                else { if(j===_pt1)tag+='<span class="wrank wp">예측1위</span>'; else if(j===_pt2)tag+='<span class="wrank w2">예측2위</span>'; } }
+      const hl=(n&&j===_at1)?' wtop1':(!n&&j===_pt1)?' wtop1':'';
+      rows+=`<div class="choice-row${hl}"><span class="ch-lbl${ans?' ans':''}">${CIRC[j+1]}</span>${tag}<div class="ch-bars"><div class="ch-bar-p" style="width:${Math.round(R.pred[i][j]/mx*100)}%"></div>${n?`<div class="ch-bar-a" style="width:${Math.round(aR[j]/mx*100)}%"></div>`:''}</div><div class="ch-pcts"><span class="pp">${R.pred[i][j].toFixed(0)}</span>${n?`<span class="ap">${aR[j].toFixed(0)}</span>`:''}</div></div>`;}
+    const _cmp=n?`<div class="pred-cmp">예측 최다오답 <b class="cp">${CIRC[_pt1+1]} ${R.pred[i][_pt1].toFixed(0)}%</b> → 실제 <b class="ca">${CIRC[_at1+1]} ${aR[_at1].toFixed(0)}%</b> ${_pt1===_at1?'<span class="cok">○ 적중</span>':'<span class="cno">✗ 빗나감</span>'}</div>`:'';
     const cr=n?students.filter(s=>s.correct[i]).length/n*100:0;
     const myC=(pick&&n)?target[0].choices[i]:0;
     const myWrong=(pick&&n)?!target[0].correct[i]:false;
-    html+=`<div class="pred-card"${myWrong?' style="border:1px solid var(--danger)"':''}><div class="pc-head"><span class="pc-num">${i+1}번</span><span class="pc-ans">${CIRC[R.ans[i]]}</span><span class="pc-pts">${R.pts[i]}점</span>${myWrong?`<span class="chip chip-red" style="margin-left:4px">내 답 ${CIRC[myC]||'무응답'}</span>`:''}${badge}</div>${n?`<div style="font-size:10px;color:var(--muted);margin-bottom:4px">정답률 ${cr.toFixed(0)}%</div>`:''}${rows}${R.tags[i]?`<div style="font-size:10px;color:var(--muted);margin-top:6px">🏷 ${R.tags[i]}</div>`:''}</div>`;
+    html+=`<div class="pred-card"${myWrong?' style="border:1px solid var(--danger)"':''}><div class="pc-head"><span class="pc-num">${i+1}번</span><span class="pc-ans">${CIRC[R.ans[i]]}</span><span class="pc-pts">${R.pts[i]}점</span>${myWrong?`<span class="chip chip-red" style="margin-left:4px">내 답 ${CIRC[myC]||'무응답'}</span>`:''}${badge}</div>${n?`<div style="font-size:10px;color:var(--muted);margin-bottom:4px">정답률 ${cr.toFixed(0)}%</div>`:''}${_cmp}${rows}${R.tags[i]?`<div style="font-size:10px;color:var(--muted);margin-top:6px">🏷 ${R.tags[i]}</div>`:''}</div>`;
   }
   document.getElementById('predGrid').innerHTML=html;
 }
